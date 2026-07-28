@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 380px;
+  min-height: 560px;
+  background: hsl(156 24% 6%);
+  color: hsl(90 20% 97%);
+  font-family: "Sora", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* When rendered as a full tab (onboarding / expanded), let it grow */
+body.expanded {
+  width: 100%;
+  min-height: 100vh;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-lime text-[hsl(156_40%_7%)] shadow-glow hover:opacity-90;
+  }
+  .btn-ghost {
+    @apply btn border border-border bg-surface2 text-white hover:border-lime/50;
+  }
+  .btn-danger {
+    @apply btn bg-danger/15 border border-danger/40 text-danger hover:bg-danger/25;
+  }
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface2 px-3 py-3 text-sm text-white outline-none placeholder:text-muted focus:border-lime/60;
+  }
+  .label {
+    @apply text-[11px] uppercase tracking-wider text-muted font-medium;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-surface2 px-2.5 py-1 text-[11px] text-muted;
+  }
+}
+
+.font-display {
+  font-family: "Orbitron", system-ui, sans-serif;
+}
+
+/* thin scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(150 14% 22%);
+  border-radius: 8px;
+}
+
+.owl-glow {
+  filter: drop-shadow(0 0 10px hsl(82 92% 55% / 0.5));
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}

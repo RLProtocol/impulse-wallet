@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+*.local
+server/.venv
+server/__pycache__
+server/.env
+__pycache__
