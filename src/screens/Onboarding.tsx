@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useWallet } from "../state";
-import { Owl, Spinner, Field, Copyable, IconCopy } from "../components/ui";
+import { Logo, Spinner, Field, Copyable, IconCopy } from "../components/ui";
 import * as ks from "../lib/keystore";
 
 type Mode = "choose" | "create-pw" | "create-seed" | "import";
@@ -52,9 +52,9 @@ export default function Onboarding() {
   return (
     <div className="min-h-[560px] px-5 py-8">
       <div className="mb-8 flex flex-col items-center text-center">
-        <Owl className="h-14 w-14" />
+        <Logo className="h-14 w-14" />
         <h1 className="font-display mt-4 text-xl font-bold tracking-wide text-white">
-          HOODX <span className="text-lime">WALLET</span>
+          IMPULSE <span className="text-lime">WALLET</span>
         </h1>
         <p className="mt-1.5 text-[13px] text-muted">Your gateway to Robinhood Chain</p>
       </div>
@@ -68,7 +68,7 @@ export default function Onboarding() {
             Import an existing wallet
           </button>
           <p className="pt-2 text-center text-[11px] leading-relaxed text-muted">
-            HoodX Wallet is non-custodial. Your keys are encrypted with your password and never
+            Impulse Wallet is non-custodial. Your keys are encrypted with your password and never
             leave this device.
           </p>
         </div>

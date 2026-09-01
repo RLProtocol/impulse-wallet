@@ -4,7 +4,7 @@ import { useWallet } from "../state";
 import { Spinner, IconExt, IconSwap, IconChevronDown } from "./ui";
 import { TokenLogo, EthMark, type LogoKind } from "./TokenLogo";
 import { fmtNum, fmtUsd, formatUnitsNum } from "../lib/format";
-import { txUrl } from "../lib/chain";
+import { CHAINS, type ChainKey } from "../lib/chains";
 
 export type SwapToken = {
   kind: LogoKind;
@@ -22,6 +22,8 @@ const SELL_PCTS = [25, 50, 100];
 export default function SwapWidget({
   token,
   balanceRaw,
+  chain: chainProp,
+  nativeRaw,
   onBuy,
   onSell,
   defaultSlippage = 10,
@@ -29,12 +31,23 @@ export default function SwapWidget({
 }: {
   token: SwapToken;
   balanceRaw: bigint;
+  /** Chain the trade will actually settle on. Defaults to the picker, but a
+   *  pasted or overlay-opened token can live somewhere else entirely. */
+  chain?: ChainKey;
+  /** Native balance on that chain, in its own base units. */
+  nativeRaw?: bigint;
   onBuy: (amountEth: string, slippage: number, onStep: (s: string) => void) => Promise<string>;
   onSell: (pct: number, slippage: number, onStep: (s: string) => void) => Promise<string>;
   defaultSlippage?: number;
   slippageOptions?: number[];
 }) {
-  const { ethBalance, ethUsd, toast } = useWallet();
+  const { ethBalance, ethUsd, solBalance, chain: activeChain, toast } = useWallet();
+  // The token's chain wins over the picker: opening a Base token while the
+  // picker says Robinhood used to show the Robinhood ETH balance and enable a
+  // Buy for funds that do not exist on Base.
+  const chain = chainProp ?? activeChain;
+  const cfg = CHAINS[chain];
+  const svm = cfg.vm === "svm";
   const [dir, setDir] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("0.05"); // ETH for buy
   const [pct, setPct] = useState(100); // % for sell
@@ -45,7 +58,11 @@ export default function SwapWidget({
   const [hash, setHash] = useState<string>();
 
   const held = formatUnitsNum(balanceRaw, token.decimals);
-  const ethBal = Number(formatEther(ethBalance));
+  // Native balance for the chain in view. SOL is 9 decimals, so formatEther
+  // would under-report it by a factor of a billion.
+  const nativeFallback = svm ? solBalance : ethBalance;
+  const raw = nativeRaw ?? (chainProp && chainProp !== activeChain ? 0n : nativeFallback);
+  const ethBal = svm ? Number(raw) / 1e9 : Number(formatEther(raw));
 
   // Estimated receive amount (price-based, like a quote preview).
   const est = useMemo(() => {
@@ -79,13 +96,15 @@ export default function SwapWidget({
     } finally { setBusy(false); setStep(""); }
   }
 
-  const eth = { kind: "native" as LogoKind, symbol: "ETH", address: undefined, logo: undefined };
+  // The pay-with asset follows the chain: SOL on Solana, ETH everywhere else.
+  // Hardcoding it made a Solana trade read "sell for ETH".
+  const eth = { kind: "native" as LogoKind, symbol: cfg.nativeSymbol, address: undefined, logo: undefined };
   const tok = { kind: token.kind, symbol: token.symbol, address: token.address, logo: token.logo };
   const payToken = dir === "buy" ? eth : tok;
   const recvToken = dir === "buy" ? tok : eth;
 
   const rate = token.priceUsd && ethUsd
-    ? `1 ${token.symbol} = ${fmtNum(token.priceUsd / ethUsd, 8)} ETH`
+    ? `1 ${token.symbol} = ${fmtNum(token.priceUsd / ethUsd, 8)} ${cfg.nativeSymbol}`
     : null;
 
   return (
@@ -190,7 +209,7 @@ export default function SwapWidget({
       </button>
 
       {hash && (
-        <a href={txUrl(hash)} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-center gap-1.5 text-[12px] text-lime hover:underline">
+        <a href={`${cfg.explorer}/${svm ? "tx" : "tx"}/${hash}`} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-center gap-1.5 text-[12px] text-lime hover:underline">
           View transaction <IconExt className="h-3.5 w-3.5" />
         </a>
       )}

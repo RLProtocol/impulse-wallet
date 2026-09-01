@@ -28,6 +28,26 @@ export function EthMark({ size = 32 }: { size?: number }) {
   );
 }
 
+export function SolMark({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" className="shrink-0">
+      <defs>
+        <linearGradient id="solmark" x1="26" y1="4" x2="8" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#00FFA3" />
+          <stop offset="1" stopColor="#DC1FFF" />
+        </linearGradient>
+      </defs>
+      <circle cx="16" cy="16" r="16" fill="#14121F" />
+      {/* Official three-bar mark, scaled into the 32px disc the rows use. */}
+      <g fill="url(#solmark)" transform="translate(7.6 10.4) scale(0.0424)">
+        <path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z" />
+        <path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z" />
+        <path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.6z" />
+      </g>
+    </svg>
+  );
+}
+
 export function UsdgMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" className="shrink-0">
@@ -76,8 +96,11 @@ function RemoteImg({ src, symbol, size }: { src: string; symbol: string; size: n
 
 const stockLogo = (symbol: string) =>
   `https://assets.parqet.com/logos/symbol/${symbol.toUpperCase()}?format=png&size=64`;
-const dexLogo = (address: string) =>
-  `https://dd.dexscreener.com/ds-data/tokens/robinhood/${address.toLowerCase()}.png`;
+// DexScreener scopes token art by chain, so the slug has to match where the
+// token actually lives — a Solana mint under /robinhood/ just 404s to the
+// monogram fallback.
+const dexLogo = (address: string, chain = "robinhood") =>
+  `https://dd.dexscreener.com/ds-data/tokens/${chain}/${address.toLowerCase()}.png`;
 
 export type LogoKind = "native" | "token" | "stock";
 
@@ -87,17 +110,22 @@ export function TokenLogo({
   address,
   src,
   size = 34,
+  chain = "robinhood",
 }: {
   kind: LogoKind;
   symbol: string;
   address?: string;
   src?: string | null; // explicit logo URL (e.g. DexScreener imageUrl)
   size?: number;
+  /** DexScreener chain slug for token art; also picks the native mark. */
+  chain?: string;
 }) {
-  if (kind === "native") return <EthMark size={size} />;
+  // Every chain here except Solana settles in ETH, so the native mark follows
+  // the symbol rather than the chain.
+  if (kind === "native") return symbol === "SOL" ? <SolMark size={size} /> : <EthMark size={size} />;
   if (address && address.toLowerCase() === USDG.toLowerCase()) return <UsdgMark size={size} />;
   if (src) return <RemoteImg src={src} symbol={symbol} size={size} />;
   if (kind === "stock") return <RemoteImg src={stockLogo(symbol)} symbol={symbol} size={size} />;
-  if (address) return <RemoteImg src={dexLogo(address)} symbol={symbol} size={size} />;
+  if (address) return <RemoteImg src={dexLogo(address, chain)} symbol={symbol} size={size} />;
   return <Monogram symbol={symbol} size={size} />;
 }

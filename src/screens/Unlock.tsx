@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useWallet } from "../state";
-import { Owl, Spinner } from "../components/ui";
+import { Logo, Spinner } from "../components/ui";
 import * as ks from "../lib/keystore";
 
 export default function Unlock() {
@@ -23,11 +23,11 @@ export default function Unlock() {
 
   return (
     <div className="flex min-h-[560px] flex-col items-center justify-center px-6">
-      <Owl className="h-16 w-16" />
+      <Logo className="h-16 w-16" />
       <h1 className="font-display mt-5 text-lg font-bold tracking-wide text-white">
         Welcome back
       </h1>
-      <p className="mt-1 text-[13px] text-muted">Unlock your HoodX Wallet</p>
+      <p className="mt-1 text-[13px] text-muted">Unlock your Impulse Wallet</p>
       <form onSubmit={submit} className="mt-6 w-full space-y-3">
         <input
           type="password"

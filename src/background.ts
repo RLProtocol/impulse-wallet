@@ -5,34 +5,354 @@
 //     read the unlocked session key) — never in the x.com content script.
 
 import { formatEther, getAddress } from "viem";
+import { publicClient, ERC20_ABI } from "./lib/chain";
 import { api } from "./lib/dex";
 import { bestPair } from "./lib/dexcore";
 import { gmgn, hasGmgnKey } from "./lib/gmgn";
-import { getUnlockedPk, activeAccount } from "./lib/keystore";
+import { getUnlockedPk, activeAccount, lock as lockWallet } from "./lib/keystore";
 import { nativeBalance, tokenBalance, signAndSend, waitReceipt } from "./lib/wallet";
-import { addToken } from "./lib/tokens";
+import { addToken, untrackIfEmpty } from "./lib/tokens";
+import * as fomo from "./lib/fomo";
+import * as callouts from "./lib/callouts";
+import { traderForX } from "./lib/trader";
+import { CHAINS, CHAIN_LIST, cfgFor, chainByDexId, clientFor, type ChainKey } from "./lib/chains";
+import { resolveTokenChain } from "./lib/dexcore";
+import * as sol from "./lib/solana";
+import { solRpc } from "./lib/solana";
+import { getUnlockedSol } from "./lib/keystore";
+import { isIdleExpired, touchActivity } from "./lib/settings";
 import { formatUnitsNum } from "./lib/format";
+
+/* ── which sites the terminal runs on ──────────────────────────────────────
+   X is declared in the manifest and always on. Anything else is opt-in: the
+   user grants that one origin, the content script is registered for it, and
+   the choice survives restarts. Registered scripts are rebuilt from storage on
+   startup because Chrome drops them when a permission is revoked. */
+
+const BUILTIN_ORIGINS = new Set(["https://x.com", "https://twitter.com"]);
+
+/** Hosts allowed to serve an image the panel will inline. Every one is already
+ *  in host_permissions; listing them again keeps a metadata URL from steering
+ *  a fetch somewhere else. */
+const IMAGE_HOSTS = new Set([
+  "dd.dexscreener.com",
+  "cdn.dexscreener.com",
+  "assets.parqet.com",
+  "metadata.mobula.io",
+  "token-media.defined.fi",
+  "pump.mypinata.cloud",
+  "socialimages.pump.fun",
+  "prod-fomo-profile-pics.s3.amazonaws.com",
+]);
+const SITES_KEY = "strix.sites.v1";
+
+async function enabledOrigins(): Promise<string[]> {
+  const r = await chrome.storage.local.get(SITES_KEY);
+  return Array.isArray(r[SITES_KEY]) ? r[SITES_KEY] : [];
+}
+
+async function siteEnabled(origin: string): Promise<boolean> {
+  if (BUILTIN_ORIGINS.has(origin)) return true;
+  if (!(await chrome.permissions.contains({ origins: [`${origin}/*`] }))) return false;
+  return (await enabledOrigins()).includes(origin);
+}
+
+const scriptId = (origin: string) => "strix-" + origin.replace(/[^a-z0-9]/gi, "-");
+
+/**
+ * The bundled content script's path, read from our own manifest.
+ *
+ * The build content-hashes it (assets/x-inject.tsx-D6WFojgr.js) and that name
+ * changes every release, so hardcoding it would work exactly once. Asking the
+ * manifest is always right.
+ */
+function contentScriptFiles(): string[] {
+  const cs = chrome.runtime.getManifest().content_scripts ?? [];
+  return cs[0]?.js ?? [];
+}
+
+async function registerFor(origin: string) {
+  const js = contentScriptFiles();
+  if (!js.length) return;
+  const id = scriptId(origin);
+  // Re-registering an existing id throws, so clear it first.
+  await chrome.scripting.unregisterContentScripts({ ids: [id] }).catch(() => {});
+  await chrome.scripting.registerContentScripts([{
+    id, matches: [`${origin}/*`], js, runAt: "document_idle",
+  }]).catch((e) => console.warn("registerContentScripts failed", origin, e));
+}
+
+async function enableSite(origin: string): Promise<boolean> {
+  if (!/^https?:\/\/[^/]+$/.test(origin)) return false;
+  const granted = await chrome.permissions.request({ origins: [`${origin}/*`] }).catch(() => false);
+  if (!granted) return false;
+  const list = await enabledOrigins();
+  if (!list.includes(origin)) await chrome.storage.local.set({ [SITES_KEY]: [...list, origin] });
+  await registerFor(origin);
+  return true;
+}
+
+async function disableSite(origin: string): Promise<void> {
+  await chrome.scripting.unregisterContentScripts({ ids: [scriptId(origin)] }).catch(() => {});
+  const list = (await enabledOrigins()).filter((o) => o !== origin);
+  await chrome.storage.local.set({ [SITES_KEY]: list });
+  // Hand the permission back — holding one we no longer use is not ours to keep.
+  await chrome.permissions.remove({ origins: [`${origin}/*`] }).catch(() => {});
+}
+
+/** Rebuild registrations after a browser restart or extension update. */
+async function restoreSites() {
+  for (const origin of await enabledOrigins()) {
+    if (await chrome.permissions.contains({ origins: [`${origin}/*`] })) await registerFor(origin);
+  }
+}
+chrome.runtime.onStartup?.addListener(() => { void restoreSites(); });
+chrome.runtime.onInstalled?.addListener(() => { void restoreSites(); });
+
+/**
+ * Is this address something you can actually trade?
+ *
+ * Plenty of addresses posted online are people's wallets, not tokens, and
+ * offering "Buy" under someone's donation address is both useless and
+ * alarming. An externally owned account has no bytecode, so that check alone
+ * removes the common case; asking for decimals() then rejects contracts that
+ * are not ERC-20 at all, like a router or an NFT.
+ *
+ * Cached both ways — a wallet address pasted in a busy thread would otherwise
+ * be re-checked on every scroll.
+ */
+const tokenCheckCache = new Map<string, { t: number; v: boolean }>();
+const TOKEN_CHECK_TTL = 30 * 60_000;
+
+/**
+ * Open the wallet UI.
+ *
+ * Firefox for Android has no window manager, so windows.create either throws
+ * or is missing entirely there. Falling back to a tab keeps the same flow
+ * working on mobile, where the popup would otherwise silently do nothing.
+ */
+async function openWallet(path: string): Promise<void> {
+  const url = chrome.runtime.getURL(path);
+  try {
+    if (chrome.windows?.create) {
+      await chrome.windows.create({ url, type: "popup", width: 400, height: 640 });
+      return;
+    }
+  } catch { /* no window manager - fall through */ }
+  await chrome.tabs.create({ url });
+}
+
+async function isTradableToken(ca: string, chain: ChainKey = "robinhood"): Promise<boolean> {
+  // On Solana "is this a token" is answered by whether a mint exists, not by
+  // probing bytecode — there is no EVM client to ask.
+  if (CHAINS[chain]?.vm === "svm") {
+    const hit = tokenCheckCache.get(chain + ":" + ca);
+    if (hit && Date.now() - hit.t < TOKEN_CHECK_TTL) return hit.v;
+    let ok = false;
+    try {
+      const r = await solRpc<any>("getAccountInfo", [ca, { encoding: "jsonParsed" }]);
+      const parsed = r?.value?.data?.parsed;
+      ok = parsed?.type === "mint";
+    } catch { /* rpc down - do not claim it is a token */ }
+    tokenCheckCache.set(chain + ":" + ca, { t: Date.now(), v: ok });
+    return ok;
+  }
+  let addr: string;
+  try { addr = getAddress(ca); } catch { return false; }
+
+  const cacheKey = chain + ":" + addr;
+  const hit = tokenCheckCache.get(cacheKey);
+  if (hit && Date.now() - hit.t < TOKEN_CHECK_TTL) return hit.v;
+
+  let ok = false;
+  try {
+    const code = await clientFor(chain).getCode({ address: addr as `0x${string}` });
+    if (code && code !== "0x") {
+      // Has code. Confirm it behaves like an ERC-20 before offering a trade.
+      // On the chain it actually lives on: reading decimals() from Robinhood
+      // for a Base contract always threw, so every non-Robinhood address was
+      // silently classified "not a token" and the overlay never mounted.
+      await clientFor(chain).readContract({
+        address: addr as `0x${string}`, abi: ERC20_ABI, functionName: "decimals",
+      });
+      ok = true;
+    }
+  } catch {
+    ok = false;   // no code, or not an ERC-20
+  }
+  tokenCheckCache.set(cacheKey, { t: Date.now(), v: ok });
+  return ok;
+}
 
 // Resolve a cashtag symbol -> the deepest-liquidity Robinhood Chain token with
 // that exact symbol, via DexScreener search. Cached (incl. negative results).
-const tickerCache = new Map<string, { t: number; v: string | null }>();
-async function resolveTicker(symbol: string): Promise<string | null> {
+const tickerCache = new Map<string, { t: number; v: { address: string; chain: ChainKey } | null }>();
+/**
+ * Floors for resolving a cashtag.
+ *
+ * A ticker is a guess, not an instruction: anyone can mint a token called
+ * $PONS, and a cashtag carries no contract. A raw address is exempt — there
+ * the user named the exact contract, so it is theirs to judge.
+ */
+const MIN_LIQUIDITY_USD = 1_000;
+const MIN_VOLUME_24H_USD = 1_000;
+const MIN_TXNS_24H = 20;
+
+/**
+ * Rank impostors out, by scoring what a scammer cannot cheaply fake.
+ *
+ * Sorting by liquidity — the obvious choice, and what this used to do — is
+ * precisely wrong. Liquidity is the one number you can manufacture by adding
+ * your own LP, and a real $PONS impostor did exactly that:
+ *
+ *            liquidity     24h volume     24h txns    pools
+ *   fake     $1,862,603    $19            0 buys / 5      1
+ *   real     $1,544,085    $2,496,888     3,131        17
+ *
+ * The fake outranked the real token on liquidity alone while being, in every
+ * behavioural sense, dead. Volume, trade count and the number of independent
+ * pools cost real money and real counterparties to fake, so they decide it.
+ *
+ * Pairs are also aggregated per token first: a genuine token is spread across
+ * many pools, and judging any single pair understates it.
+ */
+/**
+ * Quote assets worth measuring liquidity in.
+ *
+ * A pool paired against some other memecoin can show a large dollar figure
+ * while holding almost no real asset — the "$500k liquidity, 0.00001 ETH"
+ * shape. Only depth against ETH or the chain's stable says anything about
+ * whether you can actually sell.
+ */
+// Quote assets deep enough that liquidity against them is liquidity you could
+// actually exit through. This is per-ecosystem: WETH/USDG on Robinhood,
+// USDC/USDT off it, and SOL on Solana — omitting SOL made majorLiq read as
+// zero for every Solana token and silently disabled the main ranking signal.
+const MAJOR_QUOTES = new Set([
+  "WETH", "ETH", "USDG", "USDC", "USDT", "DAI", "SOL", "WSOL", "USDC.E",
+]);
+
+type TokenAgg = {
+  address: string;
+  chain: ChainKey;
+  liq: number;       // every pool, whatever it is paired with
+  majorLiq: number;  // only pools quoted in ETH/WETH/USDG
+  vol: number;
+  txns: number;
+  pools: number;
+  socials: number;
+};
+
+/**
+ * Liquidity a pool can credibly claim.
+ *
+ * DexScreener reports whatever a pool holds, and minting a token against a
+ * large nominal balance is free — so depth is only meaningful where trading
+ * corroborates it. Capping at ten times daily volume leaves real markets
+ * untouched (they turn over far more than a tenth of their depth) while
+ * collapsing an untraded $266M pool to the few hundred thousand it actually
+ * moved.
+ */
+const effLiq = (t: TokenAgg) => Math.min(t.majorLiq, t.vol * 10);
+
+function rankBySymbol(pairs: any[], sym: string): { address: string; chain: ChainKey } | null {
+  const byToken = new Map<string, TokenAgg>();
+
+  for (const p of pairs) {
+    // Any chain we can trade on, not just Robinhood. Identity is chain+address
+    // because the same address on two chains is two different tokens.
+    const cfg = chainByDexId(p.chainId);
+    if (!cfg) continue;
+    if ((p.baseToken?.symbol || "").toUpperCase() !== sym) continue;
+    const ca = p.baseToken?.address;
+    if (!ca) continue;
+
+    const key = cfg.key + ":" + ca.toLowerCase();
+    const t = byToken.get(key)
+      || { address: ca, chain: cfg.key, liq: 0, majorLiq: 0, vol: 0, txns: 0, pools: 0, socials: 0 };
+    const h24 = p.txns?.h24 || {};
+    const liq = Number(p.liquidity?.usd) || 0;
+
+    t.liq += liq;
+    if (MAJOR_QUOTES.has((p.quoteToken?.symbol || "").toUpperCase())) t.majorLiq += liq;
+    t.vol += Number(p.volume?.h24) || 0;
+    t.txns += (Number(h24.buys) || 0) + (Number(h24.sells) || 0);
+    t.pools += 1;
+    // Take the best profile seen: DexScreener attaches it per pair, and only
+    // some of a token's pools carry it.
+    t.socials = Math.max(
+      t.socials,
+      (p.info?.socials?.length || 0) + (p.info?.websites?.length || 0),
+    );
+    byToken.set(key, t);
+  }
+
+  // Floors first, and they are load-bearing. A shell with a filled-in profile
+  // is a real thing — one $PONS impostor carries three socials against $9 of
+  // daily volume — so socials only get to decide among tokens that are
+  // demonstrably alive.
+  const viable = [...byToken.values()].filter(
+    (t) => t.liq >= MIN_LIQUIDITY_USD && t.vol >= MIN_VOLUME_24H_USD && t.txns >= MIN_TXNS_24H,
+  );
+  if (!viable.length) return null;
+
+  viable.sort((a, b) =>
+    // Having a project attached beats not having one.
+    (b.socials > 0 ? 1 : 0) - (a.socials > 0 ? 1 : 0)
+    // Then depth you could actually exit through, discounted to what trading
+    // corroborates — see effLiq.
+    || effLiq(b) - effLiq(a)
+    // Then the behavioural signals, which cost real money to fake.
+    || b.vol - a.vol
+    || b.txns - a.txns
+    || b.pools - a.pools,
+  );
+  const best = viable[0];
+
+  // Socials lead, but they are metadata anyone can buy, and plenty of genuine
+  // tokens never fill them in. $HOOD is the case that proves it: the token
+  // actually being traded — $647k a day across 4,036 trades — has no profile,
+  // while three copycats named ROBINHOOD, HOOD4663 and "Robinhood Markets Inc"
+  // all have one. So a token without socials still wins if it dwarfs the
+  // profiled one on activity, which is far harder to manufacture.
+  // Depth override, on CORROBORATED depth. Raw liquidity is as forgeable as
+  // volume in the other direction: cross-chain $CASHCAT and $PONS both matched
+  // Solana pools advertising $113M and $266M against 32 trades a day. A pool
+  // nobody trades is not depth, so effLiq caps what a pool can claim by what it
+  // demonstrably turns over, and only the corroborated figure can beat socials.
+  const deepest = viable.reduce((a, b) => (effLiq(b) > effLiq(a) ? b : a));
+  if (deepest !== best && effLiq(deepest) >= Math.max(MIN_LIQUIDITY_USD, effLiq(best) * 10)) {
+    return { address: deepest.address, chain: deepest.chain };
+  }
+
+  const busiest = viable.reduce((a, b) => (b.vol > a.vol ? b : a));
+  if (
+    busiest !== best &&
+    // Volume alone must never win. A token with no depth against a major quote
+    // cannot be sold whatever its turnover says, and wash trading buys volume
+    // far more cheaply than it buys real liquidity — cross-chain $HOOD is the
+    // case that proves it: a Solana token with $0 major liquidity and $1.4M of
+    // daily volume was outranking one sitting on $37.7M of USDC pairs.
+    effLiq(busiest) >= MIN_LIQUIDITY_USD &&
+    busiest.vol >= best.vol * 10 &&
+    busiest.txns >= best.txns * 5
+  ) {
+    return { address: busiest.address, chain: busiest.chain };
+  }
+  return { address: best.address, chain: best.chain };
+}
+
+async function resolveTicker(symbol: string): Promise<{ address: string; chain: ChainKey } | null> {
   const sym = symbol.toUpperCase();
   const c = tickerCache.get(sym);
   if (c && Date.now() - c.t < 5 * 60_000) return c.v;
-  let addr: string | null = null;
+  let hit: { address: string; chain: ChainKey } | null = null;
   try {
     const r = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(sym)}`);
-    if (r.ok) {
-      const pairs = ((await r.json())?.pairs || []).filter(
-        (p: any) => p.chainId === "robinhood" && (p.baseToken?.symbol || "").toUpperCase() === sym,
-      );
-      pairs.sort((a: any, b: any) => (Number(b.liquidity?.usd) || 0) - (Number(a.liquidity?.usd) || 0));
-      addr = pairs[0]?.baseToken?.address || null;
-    }
+    if (r.ok) hit = rankBySymbol((await r.json())?.pairs || [], sym);
   } catch { /* offline */ }
-  tickerCache.set(sym, { t: Date.now(), v: addr });
-  return addr;
+  tickerCache.set(sym, { t: Date.now(), v: hit });
+  return hit;
 }
 
 // OHLCV candles from GeckoTerminal (free public API; indexes Robinhood Chain,
@@ -46,14 +366,16 @@ const TF_MAP: Record<string, { path: string; agg: number; limit: number }> = {
   "1D": { path: "day", agg: 1, limit: 120 },      // 4mo
 };
 const candleCache = new Map<string, { t: number; v: Candle[] | null }>();
-async function fetchCandles(pool: string, ca: string, tf: string): Promise<Candle[] | null> {
+async function fetchCandles(pool: string, ca: string, tf: string, chain: ChainKey = "robinhood"): Promise<Candle[] | null> {
+  const gt = cfgFor(chain).geckoterminal;
   const cfg = TF_MAP[tf] || TF_MAP["1H"];
-  const key = `${pool}:${tf}`;
+  // Chain in the key: pool addresses are only unique within a chain.
+  const key = `${chain}:${pool}:${tf}`;
   const hit = candleCache.get(key);
   if (hit && Date.now() - hit.t < 60_000) return hit.v;
   let out: Candle[] | null = null;
   try {
-    const url = `https://api.geckoterminal.com/api/v2/networks/robinhood/pools/${encodeURIComponent(pool)}` +
+    const url = `https://api.geckoterminal.com/api/v2/networks/${gt}/pools/${encodeURIComponent(pool)}` +
       `/ohlcv/${cfg.path}?aggregate=${cfg.agg}&limit=${cfg.limit}&token=${encodeURIComponent(ca)}`;
     const r = await fetch(url);
     if (r.ok) {
@@ -70,29 +392,122 @@ async function fetchCandles(pool: string, ca: string, tf: string): Promise<Candl
 async function handle(msg: any): Promise<any> {
   switch (msg?.type) {
     case "STRIX_TICKER": {
-      return { address: await resolveTicker(String(msg.symbol || "")) };
+      const hit = await resolveTicker(String(msg.symbol || ""));
+      return { address: hit?.address || null, chain: hit?.chain || null };
     }
     case "STRIX_OPEN_TRADE": {
-      const url = chrome.runtime.getURL(`index.html?ca=${encodeURIComponent(msg.ca || "")}`);
-      await chrome.windows.create({ url, type: "popup", width: 400, height: 640 });
+      await openWallet(`index.html?ca=${encodeURIComponent(msg.ca || "")}`);
       return { ok: true };
     }
     case "STRIX_OPEN": {
-      await chrome.windows.create({ url: chrome.runtime.getURL("index.html"), type: "popup", width: 400, height: 640 });
+      await openWallet("index.html");
       return { ok: true };
     }
     case "STRIX_TOKEN": {
-      const info = await api.tokenInfo(msg.ca);
-      return { info };
+      // The panel may not know the chain yet (raw CA pasted into a page), so
+      // resolve it here and hand it back for every follow-up call.
+      const chain: ChainKey = msg.chain || (await resolveTokenChain(String(msg.ca)))?.cfg.key || "robinhood";
+      const info = await api.tokenInfo(msg.ca, chain);
+      return { info, chain };
+    }
+    case "STRIX_ISTOKEN": {
+      // Try the named chain first; otherwise ask DexScreener where it lives so
+      // a Base contract in a tweet is not dismissed as "not a token".
+      if (msg.chain) return { ok: await isTradableToken(String(msg.ca), msg.chain), chain: msg.chain };
+      const found = await resolveTokenChain(String(msg.ca));
+      if (found) return { ok: await isTradableToken(String(msg.ca), found.cfg.key), chain: found.cfg.key };
+      return { ok: await isTradableToken(String(msg.ca), "robinhood"), chain: "robinhood" };
+    }
+    case "STRIX_SITE_STATUS": {
+      const origin = String(msg.origin || "");
+      return { enabled: await siteEnabled(origin), builtin: BUILTIN_ORIGINS.has(origin) };
+    }
+    case "STRIX_SITE_ENABLE": {
+      return { ok: await enableSite(String(msg.origin || "")) };
+    }
+    case "STRIX_SITE_DISABLE": {
+      await disableSite(String(msg.origin || ""));
+      return { ok: true };
     }
     case "STRIX_PAIR": {
       // Resolve a token/stock to its deepest-liquidity DexScreener pair, for
       // the inline chart. Works for stocks too (their V4 pools are indexed).
-      const pair = await bestPair(msg.ca);
-      return { chain: "robinhood", pair: pair?.pairAddress || null };
+      const cfg = cfgFor(msg.chain);
+      const pair = await bestPair(msg.ca, cfg);
+      return { chain: cfg.dexscreener, pair: pair?.pairAddress || null };
     }
     case "STRIX_CANDLES": {
-      return { candles: await fetchCandles(String(msg.pool), String(msg.ca), String(msg.tf || "1H")) };
+      return { candles: await fetchCandles(String(msg.pool), String(msg.ca), String(msg.tf || "1H"), msg.chain || "robinhood") };
+    }
+    case "STRIX_FOMO": {
+      // Thesis feed for the panel. Proxied for the same reason as GMGN: a
+      // content script cannot reach a third-party host directly.
+      const page = await fomo.theses(String(msg.ca), msg.chain ? String(msg.chain) : undefined);
+      // Resolve pictures for the rows that will actually be on screen. The
+      // panel shows five at a time, so fetching all two hundred would spend the
+      // rate limit on rows nobody scrolls to.
+      if ("items" in page && page.items.length) {
+        await fomo.withAvatars(page.items.slice(0, 10));
+      }
+      return page;
+    }
+    case "STRIX_FOMO_AVATARS": {
+      // Pictures for one page of the thesis feed, asked for as the user pages
+      // through rather than all at once — a token can carry 200 theses and only
+      // five are ever on screen.
+      const handles: string[] = (Array.isArray(msg.handles) ? msg.handles : [])
+        .slice(0, 10)
+        .map((h: unknown) => String(h));
+      const rows = handles.map((h: string) => ({ authorHandle: h, avatar: null as string | null }));
+      await fomo.withAvatars(rows as any);
+      const avatars: Record<string, string> = {};
+      for (const r of rows) if (r.avatar) avatars[r.authorHandle] = r.avatar;
+      return { avatars };
+    }
+    case "STRIX_CALLOUTS": {
+      // Pump.fun callouts. Must be proxied: their CORS header names pump.fun's
+      // own origin, so a content-script fetch is refused outright.
+      const page = await callouts.callouts(String(msg.ca));
+      if ("items" in page && page.items.length) await callouts.withAvatars(page.items.slice(0, 5));
+      return page;
+    }
+    case "STRIX_CALLOUT_AVATARS": {
+      // Pictures for one page, asked for as the user pages through.
+      const urls: string[] = (Array.isArray(msg.urls) ? msg.urls : [])
+        .slice(0, 10)
+        .map((u: unknown) => String(u));
+      const rows = urls.map((u: string) => ({ avatarUrl: u, avatar: null as string | null }));
+      await callouts.withAvatars(rows as any);
+      const out: Record<string, string> = {};
+      for (const r of rows) if (r.avatar) out[r.avatarUrl] = r.avatar;
+      return { avatars: out };
+    }
+    case "STRIX_TRADER": {
+      // X handle -> trading profile on FOMO and pump.fun. Proxied because both
+      // hosts refuse a cross-origin call from the page.
+      const h = String(msg.handle || "").replace(/^@/, "");
+      if (!/^[A-Za-z0-9_]{1,15}$/.test(h)) return null;
+      return await traderForX(h);
+    }
+    case "STRIX_QUOTE": {
+      // A dry run of the buy: what you would receive, and whether the trade
+      // would be refused. buildBuy already computes the expected output on
+      // every venue and runs the exit proof, so quoting through it means the
+      // ticket shows the same number the swap will use — and a blocked trade
+      // says so before the user commits rather than after.
+      try {
+        const acc = await activeAccount();
+        if (!acc) return { error: "locked" };
+        const chain: ChainKey = msg.chain || (await resolveTokenChain(String(msg.ca)))?.cfg.key || "robinhood";
+        if (CHAINS[chain]?.vm === "svm") return { unsupported: true };
+        const b = await api.buildBuy({
+          ca: String(msg.ca), amountEth: String(msg.amount),
+          address: acc.address, chain,
+        });
+        return { expectedOut: b.expectedOut || "0", venue: b.venue || "", chain };
+      } catch (e: any) {
+        return { error: String(e?.message || e).slice(0, 220) };
+      }
     }
     case "STRIX_GMGN": {
       // GMGN data proxy for the X panel (content scripts can't fetch cross-origin).
@@ -110,28 +525,63 @@ async function handle(msg: any): Promise<any> {
       }
     }
     case "STRIX_STATUS": {
-      const pk = await getUnlockedPk();
       const acc = await activeAccount();
-      if (!pk || !acc) return { unlocked: false };
+      const kp = await getUnlockedSol();
+      // Either key counts as unlocked: a Solana-only account has no EVM pk and
+      // was reporting "locked" in the overlay while perfectly usable.
+      if (!acc || (!(await getUnlockedPk()) && !kp)) return { unlocked: false };
+      // Balance for the chain the panel is on, not Robinhood. The footer sat
+      // under a Buy button, so showing another chain's balance read as
+      // spendable funds that were not there.
+      const chain: ChainKey = msg.chain || "robinhood";
+      const cfg = CHAINS[chain];
       let eth = "0";
-      try { eth = formatEther(await nativeBalance(acc.address)); } catch { /* rpc */ }
-      return { unlocked: true, address: acc.address, label: acc.label, eth };
+      try {
+        eth = cfg.vm === "svm"
+          ? (kp ? (Number(await sol.solBalance(kp.address)) / 1e9).toString() : "0")
+          : formatEther(await nativeBalance(acc.address, chain));
+      } catch { /* rpc */ }
+      return {
+        unlocked: true,
+        address: cfg.vm === "svm" ? kp?.address ?? acc.address : acc.address,
+        label: acc.label,
+        eth,
+        symbol: cfg.nativeSymbol,
+      };
     }
     case "STRIX_HOLDING": {
       const acc = await activeAccount();
       if (!acc) return { amount: 0 };
       try {
-        const info = await api.tokenInfo(msg.ca);
-        const raw = await tokenBalance(getAddress(msg.ca), acc.address);
+        const chain: ChainKey = msg.chain || "robinhood";
+        const info = await api.tokenInfo(msg.ca, chain);
+        // getAddress() rejects a base58 mint, so Solana reads its balance from
+        // the token account instead of an ERC20 call.
+        if (CHAINS[chain]?.vm === "svm") {
+          const kp = await getUnlockedSol();
+          if (!kp) return { amount: 0 };
+          const { raw: solRaw, decimals } = await sol.splBalance(kp.address, String(msg.ca));
+          return { amount: formatUnitsNum(solRaw, decimals || info.decimals), decimals: decimals || info.decimals, symbol: info.symbol };
+        }
+        const raw = await tokenBalance(getAddress(msg.ca), acc.address, chain);
         return { amount: formatUnitsNum(raw, info.decimals), decimals: info.decimals, symbol: info.symbol };
       } catch { return { amount: 0 }; }
     }
     case "STRIX_IMAGE": {
       try {
         if (!msg.url) return { data: null };
-        const r = await fetch(msg.url);
+        // Same two rules as avatars: the URL comes from a token's metadata and
+        // the Content-Type from whoever serves it, so neither is trusted. A
+        // header of `image/png" onerror="…` would otherwise close the src
+        // attribute the data URI is written into.
+        let iu: URL;
+        try { iu = new URL(String(msg.url)); } catch { return { data: null }; }
+        if (iu.protocol !== "https:") return { data: null };
+        if (!IMAGE_HOSTS.has(iu.hostname)) return { data: null };
+        const r = await fetch(iu.toString());
         if (!r.ok) return { data: null };
-        const ct = r.headers.get("content-type") || "image/png";
+        const ct = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+        if (!/^image\/(png|jpeg|jpg|gif|webp|avif|svg\+xml)$/.test(ct)) return { data: null };
         const bytes = new Uint8Array(await r.arrayBuffer());
         let bin = "";
         for (const b of bytes) bin += String.fromCharCode(b);
@@ -139,39 +589,97 @@ async function handle(msg: any): Promise<any> {
       } catch { return { data: null }; }
     }
     case "STRIX_BUY": {
-      const pk = await getUnlockedPk();
+      await requireUnlocked();
       const acc = await activeAccount();
-      if (!pk || !acc) return { error: "locked" };
-      const bundle = await api.buildBuy({ ca: msg.ca, amountEth: String(msg.amountEth), address: acc.address, slippage: msg.slippage ?? 10 });
+      // A Solana-key account has no EVM pk, so the lock check is "is anything
+      // unlocked", with the per-chain key fetched where it is actually used.
+      if (!acc || (!(await getUnlockedPk()) && !(await getUnlockedSol()))) return { error: "locked" };
+      const chain: ChainKey = msg.chain || (await resolveTokenChain(String(msg.ca)))?.cfg.key || "robinhood";
+      // Solana has no bundle to sign: PumpPortal and Jupiter hand back a
+      // finished transaction, and the key is ed25519 rather than the EVM one.
+      if (CHAINS[chain]?.vm === "svm") {
+        const kp = await getUnlockedSol();
+        if (!kp) return { error: "This account has no Solana key." };
+        const r = await sol.solBuy(kp, String(msg.ca), Number(msg.amountEth), msg.slippage ?? 10);
+        await sol.confirmTx(r.signature).catch(() => false);
+        try {
+          const info = await api.tokenInfo(msg.ca, chain);
+          await addToken(msg.ca, "trade", { symbol: info.symbol, name: info.name, decimals: info.decimals }, chain);
+        } catch { /* non-fatal */ }
+        return { hash: r.signature, chain, via: r.via };
+      }
+      const bundle = await api.buildBuy({ ca: msg.ca, amountEth: String(msg.amountEth), address: acc.address, slippage: msg.slippage ?? 10, chain });
       let hash: string | undefined;
+      // Sign on the chain the bundle was built for, never the wallet default.
       for (const tx of bundle.txs) {
-        hash = await signAndSend(tx);
-        await waitReceipt(hash as `0x${string}`);
+        hash = await signAndSend(tx, chain);
+        await waitReceipt(hash as `0x${string}`, chain);
       }
       try {
-        const info = await api.tokenInfo(msg.ca);
-        await addToken(msg.ca, "trade", { symbol: info.symbol, name: info.name, decimals: info.decimals });
+        const info = await api.tokenInfo(msg.ca, chain);
+        await addToken(msg.ca, "trade", { symbol: info.symbol, name: info.name, decimals: info.decimals }, chain);
       } catch { /* non-fatal */ }
       return { hash };
     }
     case "STRIX_SELL": {
-      const pk = await getUnlockedPk();
+      await requireUnlocked();
       const acc = await activeAccount();
-      if (!pk || !acc) return { error: "locked" };
-      const bundle = await api.buildSell({ ca: msg.ca, pct: msg.pct, address: acc.address, slippage: msg.slippage ?? 10 });
+      if (!acc || (!(await getUnlockedPk()) && !(await getUnlockedSol()))) return { error: "locked" };
+      const chain: ChainKey = msg.chain || (await resolveTokenChain(String(msg.ca)))?.cfg.key || "robinhood";
+      if (CHAINS[chain]?.vm === "svm") {
+        const kp = await getUnlockedSol();
+        if (!kp) return { error: "This account has no Solana key." };
+        const r = await sol.solSell(kp, String(msg.ca), msg.pct, msg.slippage ?? 10);
+        await sol.confirmTx(r.signature).catch(() => false);
+        if (msg.pct >= 100) {
+          const { raw } = await sol.splBalance(kp.address, String(msg.ca)).catch(() => ({ raw: 1n }));
+          await untrackIfEmpty(msg.ca, chain, raw).catch(() => false);
+        }
+        return { hash: r.signature, chain, via: r.via };
+      }
+      const bundle = await api.buildSell({ ca: msg.ca, pct: msg.pct, address: acc.address, slippage: msg.slippage ?? 10, chain });
       let hash: string | undefined;
       for (const tx of bundle.txs) {
-        hash = await signAndSend(tx);
-        await waitReceipt(hash as `0x${string}`);
+        hash = await signAndSend(tx, chain);
+        await waitReceipt(hash as `0x${string}`, chain);
       }
-      return { hash };
+      // Sold out: stop listing it. Balance is re-read rather than assumed.
+      if (msg.pct >= 100) {
+        const left = await tokenBalance(getAddress(msg.ca), acc.address, chain).catch(() => 1n);
+        await untrackIfEmpty(msg.ca, chain, left).catch(() => false);
+      }
+      return { hash, chain };
     }
     default:
       return { error: "unknown" };
   }
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+/**
+ * Enforce auto-lock on the paths that spend money.
+ *
+ * The idle check lived only in the popup's reload(), so it ran when the popup
+ * opened. Trades started from the injected panel never open the popup, which
+ * meant a user who set "lock after 15 minutes" and walked away still had a
+ * usable session key hours later. The setting has to be enforced where signing
+ * happens, not where the UI happens.
+ */
+async function requireUnlocked(): Promise<void> {
+  if (await isIdleExpired()) {
+    await lockWallet();
+    throw new Error("Wallet locked after inactivity. Open Impulse and unlock to continue.");
+  }
+  await touchActivity();
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Only our own contexts may drive the wallet. A page cannot reach this today
+  // (no externally_connectable), but these handlers sign and broadcast real
+  // transactions, so the origin check is stated rather than assumed.
+  if (sender.id !== chrome.runtime.id) {
+    sendResponse({ error: "unauthorized" });
+    return false;
+  }
   handle(msg)
     .then((r) => sendResponse(r))
     .catch((e) => sendResponse({ error: (e?.shortMessage || e?.message || String(e)).slice(0, 160) }));

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScreenHeader, Spinner, useAsync, IconExt } from "../components/ui";
 import { gmgn, hasGmgnKey, rowsOf, walletAddrOf, tagsOf, pick, isPoolRow, TAG_LABEL, type HolderSort, type WalletTag } from "../lib/gmgn";
-import { addrUrl } from "../lib/chain";
+import { addrUrlOn, type ChainKey } from "../lib/chains";
 import { shortAddr, fmtUsd, fmtPct } from "../lib/format";
 import { useWallet } from "../state";
 
@@ -32,7 +32,7 @@ const TAG_STYLE: Record<string, string> = {
 };
 
 export default function Holders({ ca, symbol }: { ca: string; symbol?: string }) {
-  const { go } = useWallet();
+  const { go, chain } = useWallet();
   const [tab, setTab] = useState<"holders" | "traders">("holders");
   const [sort, setSort] = useState<HolderSort>("amount_percentage");
   const [tag, setTag] = useState<WalletTag | undefined>(undefined);
@@ -126,7 +126,7 @@ export default function Holders({ ca, symbol }: { ca: string; symbol?: string })
 
             <div className="space-y-1.5">
               {rows.slice(page * PAGE, page * PAGE + PAGE).map((r: any, i: number) => (
-                <WalletRow key={walletAddrOf(r) || i} row={r} rank={page * PAGE + i + 1} />
+                <WalletRow key={walletAddrOf(r) || i} row={r} rank={page * PAGE + i + 1} chain={chain} />
               ))}
             </div>
             {rows.length > PAGE && (
@@ -162,7 +162,9 @@ export default function Holders({ ca, symbol }: { ca: string; symbol?: string })
   );
 }
 
-function WalletRow({ row, rank }: { row: any; rank: number }) {
+// chain is threaded in rather than read from context: this list is GMGN
+// data, and its explorer links must point at the chain the token is on.
+function WalletRow({ row, rank, chain }: { row: any; rank: number; chain: ChainKey }) {
   const addr = walletAddrOf(row);
   const pool = isPoolRow(row);
   const tags = pool ? [] : tagsOf(row);
@@ -187,7 +189,7 @@ function WalletRow({ row, rank }: { row: any; rank: number }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <a
-            href={addrUrl(addr)} target="_blank" rel="noreferrer"
+            href={addrUrlOn(chain, addr)} target="_blank" rel="noreferrer"
             className="truncate font-mono text-[12px] text-white hover:text-lime"
             title={addr}
           >
@@ -203,7 +205,7 @@ function WalletRow({ row, rank }: { row: any; rank: number }) {
               {TAG_LABEL[t]}
             </span>
           ))}
-          <a href={addrUrl(addr)} target="_blank" rel="noreferrer" className="ml-auto shrink-0 text-muted hover:text-lime">
+          <a href={addrUrlOn(chain, addr)} target="_blank" rel="noreferrer" className="ml-auto shrink-0 text-muted hover:text-lime">
             <IconExt className="h-3 w-3" />
           </a>
         </div>

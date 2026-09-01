@@ -3,10 +3,10 @@ import { useWallet } from "../state";
 import { ScreenHeader, Field, Spinner, Copyable, IconPlus } from "../components/ui";
 import * as ks from "../lib/keystore";
 import { shortAddr } from "../lib/format";
-import owl from "../assets/owl.png";
+import logo from "../assets/logo.png";
 
 export function AccountAvatar({ address, size = 34 }: { address: string; size?: number }) {
-  // HoodX owl on a subtle per-account tint so accounts stay distinguishable.
+  // Impulse logo on a subtle per-account tint so accounts stay distinguishable.
   let h = 0;
   for (let i = 2; i < address.length; i++) h = (h * 31 + address.charCodeAt(i)) >>> 0;
   const hue = h % 360;
@@ -15,7 +15,7 @@ export function AccountAvatar({ address, size = 34 }: { address: string; size?: 
       className="grid shrink-0 place-items-center rounded-full"
       style={{ width: size, height: size, background: `hsl(${hue} 40% 16%)`, border: `1px solid hsl(${hue} 55% 40%)` }}
     >
-      <img src={owl} alt="" style={{ width: size * 0.64, height: size * 0.64 }} />
+      <img src={logo} alt="" style={{ width: size * 0.64, height: size * 0.64 }} />
     </div>
   );
 }
@@ -23,7 +23,7 @@ export function AccountAvatar({ address, size = 34 }: { address: string; size?: 
 export default function Accounts() {
   const { accounts, activeId, switchAccount, refresh, toast, back } = useWallet();
   const [mode, setMode] = useState<"list" | "import">("list");
-  const [importKind, setImportKind] = useState<"pk" | "seed">("pk");
+  const [importKind, setImportKind] = useState<"pk" | "seed" | "sol">("pk");
   const [secret, setSecret] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,7 +44,8 @@ export default function Accounts() {
   async function doImport() {
     setBusy(true);
     try {
-      await ks.addImportedAccount(secret, pw, importKind);
+      if (importKind === "sol") await ks.importSolanaKey(secret, pw);
+      else await ks.addImportedAccount(secret, pw, importKind);
       await refresh();
       toast("ok", "Account imported");
       setMode("list"); setSecret(""); setPw("");
@@ -76,11 +77,22 @@ export default function Accounts() {
         <ScreenHeader title="Import account" />
         <div className="space-y-4 p-4">
           <div className="flex gap-2">
-            <button className={`flex-1 rounded-lg px-3 py-2 text-[13px] ${importKind === "pk" ? "bg-lime text-black" : "bg-surface2 text-muted"}`} onClick={() => setImportKind("pk")}>Private key</button>
-            <button className={`flex-1 rounded-lg px-3 py-2 text-[13px] ${importKind === "seed" ? "bg-lime text-black" : "bg-surface2 text-muted"}`} onClick={() => setImportKind("seed")}>Recovery phrase</button>
+            <button className={`flex-1 rounded-lg px-2 py-2 text-[12px] ${importKind === "pk" ? "bg-lime text-black" : "bg-surface2 text-muted"}`} onClick={() => setImportKind("pk")}>EVM key</button>
+            <button className={`flex-1 rounded-lg px-2 py-2 text-[12px] ${importKind === "sol" ? "bg-lime text-black" : "bg-surface2 text-muted"}`} onClick={() => setImportKind("sol")}>Solana key</button>
+            <button className={`flex-1 rounded-lg px-2 py-2 text-[12px] ${importKind === "seed" ? "bg-lime text-black" : "bg-surface2 text-muted"}`} onClick={() => setImportKind("seed")}>Phrase</button>
           </div>
-          <Field label={importKind === "pk" ? "Private key (0x…)" : "Recovery phrase"}>
-            <textarea className="input h-20 resize-none font-mono text-[12px]" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder={importKind === "pk" ? "0x…" : "word1 word2 …"} />
+          <Field
+            label={importKind === "pk" ? "Private key (0x…)" : importKind === "sol" ? "Solana private key (base58)" : "Recovery phrase"}
+            hint={importKind === "sol"
+              ? "One phrase can hold any number of Solana accounts, so paste the key for the exact one you want. Phantom's Export Private Key gives this format."
+              : undefined}
+          >
+            <textarea
+              className="input h-20 resize-none font-mono text-[12px]"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder={importKind === "pk" ? "0x…" : importKind === "sol" ? "base58 secret key…" : "word1 word2 …"}
+            />
           </Field>
           <Field label="Wallet password" hint="Confirm your password to encrypt this account on the device.">
             <input type="password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password" />
@@ -111,11 +123,15 @@ export default function Accounts() {
                       {a.id === activeId && <span className="chip border-lime/40 px-1.5 py-0 text-[9px] text-lime">active</span>}
                     </div>
                   )}
-                  <div className="truncate font-mono text-[11px] text-muted">{shortAddr(a.address, 6)}</div>
+                  {/* A solana-kind account stores a placeholder EVM address;
+                      showing it would display 0x0000…0000 as if it were real. */}
+                  <div className="truncate font-mono text-[11px] text-muted">
+                    {a.kind === "solana" ? shortAddr(a.solAddress, 6) : shortAddr(a.address, 6)}
+                  </div>
                 </div>
               </button>
               <div className="flex items-center gap-2 text-muted">
-                <Copyable text={a.address}><span className="sr-only">copy</span></Copyable>
+                <Copyable text={a.kind === "solana" ? a.solAddress || "" : a.address}><span className="sr-only">copy</span></Copyable>
                 <button className="text-[11px] hover:text-white" onClick={() => { setEditing(a.id); setLabel(a.label); }}>Rename</button>
                 {accounts.length > 1 && <button className="text-[11px] hover:text-danger" onClick={() => remove(a.id)}>Remove</button>}
               </div>

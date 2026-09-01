@@ -1,7 +1,7 @@
 import { getItem, setItem } from "./storage";
 import type { UnsignedTx } from "./wallet";
 
-// The HoodX trade API wraps robinhoodcode.py: it builds unsigned transactions
+// The Impulse trade API wraps robinhoodcode.py: it builds unsigned transactions
 // and serves quotes/prices/token-info. The wallet signs locally and broadcasts.
 const API_KEY = "strix.apiBase";
 const DEFAULT_API =
@@ -49,7 +49,9 @@ export type TokenInfo = {
   logo?: string | null;
 };
 
-export type TxBundle = { txs: UnsignedTx[]; expectedOut?: string; decimals?: number; note?: string; venue?: string };
+/** `chain` is which network the txs must be signed on — the wallet client is
+ *  per-chain, so a bundle built for Base cannot be sent on Robinhood. */
+export type TxBundle = { txs: UnsignedTx[]; expectedOut?: string; decimals?: number; note?: string; venue?: string; chain?: string };
 
 export const api = {
   health: () => req<{ ok: boolean; chain: number }>("/health"),

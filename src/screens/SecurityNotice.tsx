@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useWallet } from "../state";
-import { Owl, IconShield } from "../components/ui";
+import { Logo, IconShield } from "../components/ui";
 import { setSecurityAck } from "../lib/settings";
 
 const POINTS = [
@@ -17,7 +17,7 @@ export default function SecurityNotice() {
   return (
     <div className="min-h-[560px] px-5 py-8">
       <div className="mb-6 flex flex-col items-center text-center">
-        <Owl className="h-12 w-12" />
+        <Logo className="h-12 w-12" />
         <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-lime/30 bg-lime/10 px-3 py-1 text-[11px] text-lime">
           <IconShield className="h-3.5 w-3.5" /> Before you start
         </div>

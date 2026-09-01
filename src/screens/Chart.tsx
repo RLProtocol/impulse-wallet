@@ -1,23 +1,35 @@
 import { ScreenHeader, Spinner, useAsync, IconExt } from "../components/ui";
 import { bestPair } from "../lib/dexcore";
+import { useWallet } from "../state";
+import { CHAINS } from "../lib/chains";
 
 // A deep, liquid ETH reference pair on Ethereum (Uniswap V3 WETH/USDC 0.05%).
 const ETH_PAIR = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640";
+// Deep SOL/USDC pair on Raydium, for the native chart on Solana.
+const SOL_PAIR = "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2";
 
 function embedUrl(chain: string, pair: string) {
   return `https://dexscreener.com/${chain}/${pair}?embed=1&theme=dark&trades=0&info=0&chartTheme=dark`;
 }
 
 export default function Chart({ kind, address, symbol }: { kind: "native" | "token" | "stock"; address?: string; symbol?: string }) {
+  const { chain } = useWallet();
+  const cfg = CHAINS[chain];
   const q = useAsync(async () => {
-    if (kind === "native") return { chain: "ethereum", pair: ETH_PAIR };
+    // The native chart is always the ETH reference pair on Ethereum, except on
+    // Solana where the native asset is SOL and that pair is meaningless.
+    if (kind === "native") {
+      return cfg.vm === "svm" ? { chain: "solana", pair: SOL_PAIR } : { chain: "ethereum", pair: ETH_PAIR };
+    }
     if (!address) return null;
-    const p = await bestPair(address);
+    const p = await bestPair(address, cfg);
     const pairAddr = p?.pairAddress;
-    return pairAddr ? { chain: "robinhood", pair: pairAddr } : null;
-  }, [kind, address]);
+    // DexScreener scopes an embed by chain — a Base pair under /robinhood/
+    // renders an empty chart, not an error.
+    return pairAddr ? { chain: cfg.dexscreener, pair: pairAddr } : null;
+  }, [kind, address, chain]);
 
-  const title = kind === "native" ? "ETH chart" : `${symbol || "Token"} chart`;
+  const title = kind === "native" ? `${cfg.nativeSymbol} chart` : `${symbol || "Token"} chart`;
   const src = q.data ? embedUrl(q.data.chain, q.data.pair) : null;
 
   return (

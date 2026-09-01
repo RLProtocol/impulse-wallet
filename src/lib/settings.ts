@@ -1,4 +1,4 @@
-import { getItem, setItem, getSession, setSession } from "./storage";
+import { getItem, setItem, getSession, setSession, clearSession } from "./storage";
 
 const AUTOLOCK_KEY = "strix.autolockMin";
 const SECACK_KEY = "strix.securityAck";
@@ -27,6 +27,19 @@ export async function touchActivity(): Promise<void> {
 }
 export async function getLastActive(): Promise<number | undefined> {
   return getSession<number>(LASTACTIVE_KEY);
+}
+
+/**
+ * Forget when the wallet was last used.
+ *
+ * Called on lock. Leaving the timestamp behind is what caused the wallet to
+ * refuse a correct password: reload() re-checks isIdleExpired() straight after
+ * a successful unlock, saw the pre-lock timestamp still sitting there, decided
+ * the session was stale and locked again — permanently, since the value was
+ * never cleared.
+ */
+export async function clearActivity(): Promise<void> {
+  await clearSession(LASTACTIVE_KEY);
 }
 
 // True when the wallet has been idle longer than the auto-lock window.

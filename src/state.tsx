@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { CHAINS, DEFAULT_CHAIN, getActiveChain, isEvm, setActiveChain as persistChain, type ChainKey } from "./lib/chains";
 import type { Address } from "viem";
 import { formatEther } from "viem";
 import * as ks from "./lib/keystore";
+import * as sol from "./lib/solana";
 import type { Account } from "./lib/keystore";
 import { nativeBalance } from "./lib/wallet";
 import { api } from "./lib/dex";
@@ -9,7 +11,7 @@ import { touchActivity, isIdleExpired, getSecurityAck } from "./lib/settings";
 
 export type Screen =
   | { name: "home" }
-  | { name: "send" }
+  | { name: "send"; kind?: "native" | "token" | "stock"; address?: string }
   | { name: "receive" }
   | { name: "addToken" }
   | { name: "trade"; ca?: string }
@@ -32,6 +34,15 @@ type Ctx = {
   activeId?: string;
   ethBalance: bigint;
   ethUsd: number | null;
+  chain: ChainKey;
+  setChain: (c: ChainKey) => Promise<void>;
+  /** Base58 address for the active account, or null when it cannot have one
+   *  (imported private-key accounts have no Solana counterpart). */
+  solAddress: string | null;
+  /** Lamports on Solana; 0 elsewhere. */
+  solBalance: bigint;
+  /** The address to show and copy for the selected chain. */
+  activeAddress: string | undefined;
   screen: Screen;
   toasts: Toast[];
   go: (s: Screen) => void;
@@ -61,6 +72,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [activeId, setActiveId] = useState<string>();
   const [ethBalance, setEthBalance] = useState<bigint>(0n);
   const [ethUsd, setEthUsd] = useState<number | null>(null);
+  const [chain, setChainState] = useState<ChainKey>(DEFAULT_CHAIN);
+  const [solAddress, setSolAddress] = useState<string | null>(null);
+  const [solBalance, setSolBalance] = useState<bigint>(0n);
   const [stack, setStack] = useState<Screen[]>([{ name: "home" }]);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -76,13 +90,36 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAddress(a.address);
     setActiveId(a.id);
     setAccounts(await ks.listAccounts());
-    try {
-      setEthBalance(await nativeBalance(a.address));
-    } catch { /* rpc hiccup */ }
+    // Derived, not stored — see keystore.getUnlockedSol.
+    try { setSolAddress(await ks.activeSolAddress()); } catch { setSolAddress(null); }
+    if (isEvm(chain)) {
+      try {
+        setEthBalance(await nativeBalance(a.address, chain));
+      } catch { /* rpc hiccup */ }
+    } else {
+      // Read it here so anything showing a native balance has one for the
+      // chain in view — otherwise the previous chain's ETH lingers on screen.
+      try {
+        const sa = await ks.activeSolAddress();
+        setSolBalance(sa ? await sol.solBalance(sa) : 0n);
+      } catch { setSolBalance(0n); }
+    }
     try {
       const { usd } = await api.nativePrice();
       setEthUsd(usd);
     } catch { /* offline */ }
+  }, [chain]);
+
+  // Restore the last picked chain once, before the first balance read.
+  useEffect(() => { getActiveChain().then(setChainState); }, []);
+
+  const setChain = useCallback(async (c: ChainKey) => {
+    // Zero the cached balances first. refresh() is async, and without this the
+    // previous chain's ETH sits on screen as if it were the new chain's.
+    setEthBalance(0n);
+    setSolBalance(0n);
+    setChainState(c);
+    await persistChain(c);
   }, []);
 
   const doLock = useCallback(async () => {
@@ -144,7 +181,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const value: Ctx = {
     ready, hasWallet, unlocked, needsSecurity, address, accounts, activeId,
-    ethBalance, ethUsd, screen: stack[stack.length - 1], toasts,
+    ethBalance, ethUsd, chain, setChain, solAddress, solBalance,
+    activeAddress: CHAINS[chain].vm === "svm" ? solAddress ?? undefined : address,
+    screen: stack[stack.length - 1], toasts,
     go, back, refresh, toast, reload, lock: doLock, switchAccount, ackSecurity,
   };
   return <WalletCtx.Provider value={value}>{children}</WalletCtx.Provider>;

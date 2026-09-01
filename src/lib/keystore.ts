@@ -7,22 +7,26 @@
 import { english, generateMnemonic, privateKeyToAccount } from "viem/accounts";
 import { HDKey } from "@scure/bip32";
 import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
+import * as sol from "./solana";
 import { wordlist } from "@scure/bip39/wordlists/english";
 import { bytesToHex, type Hex } from "viem";
 import { getItem, setItem, removeItem, getSession, setSession, clearSession } from "./storage";
+import { touchActivity, clearActivity } from "./settings";
 
 const VAULT_KEY = "strix.vault.v1"; // same storage slot; holds v1 or v2 shape
 const SESSION_KEY = "strix.session.v2";
 const PBKDF2_ITERS = 310_000;
 
 type EncBlob = { cipher: string; iv: string; salt: string };
-type SecretPayload = { pk: Hex; mnemonic?: string };
+type SecretPayload = { pk: Hex; mnemonic?: string; solSecret?: string };
 
 export type Account = {
   id: string;
   label: string;
   address: `0x${string}`;
-  kind: "hd" | "imported";
+  kind: "hd" | "imported" | "solana";
+  /** Base58 address, on solana-kind accounts and cached for display. */
+  solAddress?: string;
   hdIndex?: number; // hd only
   secret?: EncBlob; // imported only (encrypted {pk, mnemonic?})
   hasMnemonic: boolean;
@@ -37,7 +41,18 @@ export type Vault = {
 };
 
 type V1Vault = { version: 1; address: `0x${string}`; hasMnemonic: boolean } & EncBlob & { createdAt: number };
-type Session = { mnemonic: string | null; pks: Record<string, Hex> };
+type Session = {
+  mnemonic: string | null;
+  pks: Record<string, Hex>;
+  /** Base58 secrets for solana-kind accounts, held only while unlocked. */
+  solSecrets?: Record<string, string>;
+};
+
+// Solana-only accounts have no EVM key. These stand in so the Account shape
+// stays uniform; nothing ever signs with them, and the UI refuses EVM chains
+// for a solana-kind account rather than using the placeholder.
+const ZERO_PK = ("0x" + "0".repeat(64)) as Hex;
+const ZERO_PK_ADDR = ("0x" + "0".repeat(40)) as `0x${string}`;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -107,10 +122,13 @@ export async function hasVault(): Promise<boolean> {
   return !!(await readRaw());
 }
 
-async function setSessionFor(vault: Vault, mnemonic: string | null, extraPks: Record<string, Hex>): Promise<void> {
+async function setSessionFor(
+  vault: Vault, mnemonic: string | null, extraPks: Record<string, Hex>,
+  solSecrets: Record<string, string> = {},
+): Promise<void> {
   const pks: Record<string, Hex> = { ...extraPks };
   if (mnemonic) for (const a of vault.accounts) if (a.kind === "hd") pks[a.id] = deriveFromMnemonic(mnemonic, a.hdIndex!).pk;
-  await setSession(SESSION_KEY, { mnemonic, pks } as Session);
+  await setSession(SESSION_KEY, { mnemonic, pks, solSecrets } as Session);
 }
 
 // ── create / import (first wallet) ──────────────────────────────────────────
@@ -178,6 +196,9 @@ export async function unlock(password: string): Promise<Vault> {
       await setItem(VAULT_KEY, vault);
       await setSessionFor(vault, null, { [id]: secret.pk });
     }
+    // Unlocking is activity. Without this the idle clock still reads pre-lock
+    // and reload() locks us straight back out.
+    await touchActivity();
     return vault;
   }
 
@@ -185,14 +206,17 @@ export async function unlock(password: string): Promise<Vault> {
   let mnemonic: string | null = null;
   if (vault.seed) mnemonic = await decrypt<string>(password, vault.seed).catch(() => { throw new Error("Wrong password."); });
   const imported: Record<string, Hex> = {};
+  const solSecrets: Record<string, string> = {};
   for (const a of vault.accounts) {
-    if (a.kind === "imported" && a.secret) {
+    if ((a.kind === "imported" || a.kind === "solana") && a.secret) {
       const s = await decrypt<SecretPayload>(password, a.secret).catch(() => { throw new Error("Wrong password."); });
-      imported[a.id] = s.pk;
+      if (a.kind === "solana") { if (s.solSecret) solSecrets[a.id] = s.solSecret; }
+      else imported[a.id] = s.pk;
     }
   }
   // If there is no seed and no imported secret decrypted yet, verify password by decrypting the first available secret (done above).
-  await setSessionFor(vault, mnemonic, imported);
+  await setSessionFor(vault, mnemonic, imported, solSecrets);
+  await touchActivity();
   return vault;
 }
 
@@ -208,8 +232,70 @@ export async function getUnlockedPk(): Promise<Hex | undefined> {
   if (!s || !v) return undefined;
   return s.pks[v.activeId];
 }
+/**
+ * Solana keypair for the active account, derived on demand.
+ *
+ * Not stored on the Account record: adding a field would need a vault
+ * migration on wallets that already hold funds, and the key is reproducible
+ * from the phrase anyway. Derivation is SLIP-0010 ed25519 at m/44'/501'/i'/0',
+ * which is what Phantom and Solflare show for the same phrase — so a user's
+ * Solana address here matches the one they already know.
+ *
+ * Returns null for imported private-key accounts: an secp256k1 key has no
+ * Solana counterpart, and inventing one would show an address the user can
+ * never recover elsewhere.
+ */
+export async function getUnlockedSol(): Promise<sol.SolKeypair | null> {
+  const s = await getSessionData();
+  const v = await getVault();
+  if (!s || !v) return null;
+  const acc = v.accounts.find((a) => a.id === v.activeId);
+  if (!acc) return null;
+  // A key imported directly is used as-is: one phrase yields an unlimited
+  // number of Solana accounts, so pasting the key is the only way to reach a
+  // specific one that was created elsewhere.
+  if (acc.kind === "solana") {
+    const raw = s.solSecrets?.[acc.id];
+    return raw ? sol.fromSecretKey(raw) : null;
+  }
+  if (acc.kind !== "hd" || !s.mnemonic) return null;
+  return sol.fromMnemonic(s.mnemonic, acc.hdIndex ?? 0);
+}
+
+/** Import a Solana key (base58, 64-byte Phantom export or 32-byte seed). */
+export async function importSolanaKey(secret: string, password: string): Promise<void> {
+  const kp = sol.fromSecretKey(secret.trim());
+  const v = await getVault();
+  if (!v) throw new Error("Create or import a wallet first.");
+  await unlock(password); // proves the password before writing
+  const id = crypto.randomUUID();
+  const blob = await encrypt(password, {
+    pk: ZERO_PK, solSecret: secret.trim(),
+  } satisfies SecretPayload);
+  v.accounts.push({
+    id,
+    label: `Solana ${v.accounts.filter((a) => a.kind === "solana").length + 1}`,
+    address: ZERO_PK_ADDR,
+    kind: "solana",
+    solAddress: kp.address,
+    secret: blob,
+    hasMnemonic: false,
+  });
+  v.activeId = id;
+  await setItem(VAULT_KEY, v);
+  await unlock(password);
+}
+
+/** Active account's Solana address, or null when it cannot have one. */
+export async function activeSolAddress(): Promise<string | null> {
+  return (await getUnlockedSol())?.address ?? null;
+}
+
 export async function lock(): Promise<void> {
   await clearSession(SESSION_KEY);
+  // Drop the idle timestamp too: while locked it means nothing, and a stale
+  // one makes the next successful unlock look expired.
+  await clearActivity();
 }
 
 // ── accounts ────────────────────────────────────────────────────────────────
@@ -290,17 +376,22 @@ export async function removeAccount(id: string): Promise<void> {
 }
 
 // Reveal the ACTIVE account's secret (requires the password again).
-export async function revealSecret(password: string): Promise<{ pk: string; mnemonic?: string; label: string }> {
+export async function revealSecret(password: string): Promise<{ pk: string; mnemonic?: string; label: string; solPk?: string }> {
   const v = await getVault();
   if (!v) throw new Error("No wallet found.");
   const a = v.accounts.find((x) => x.id === v.activeId)!;
   if (a.kind === "hd") {
     if (!v.seed) throw new Error("No recovery phrase for this account.");
     const mnemonic = await decrypt<string>(password, v.seed).catch(() => { throw new Error("Wrong password."); });
-    return { pk: deriveFromMnemonic(mnemonic, a.hdIndex!).pk, mnemonic, label: a.label };
+    return {
+      pk: deriveFromMnemonic(mnemonic, a.hdIndex!).pk,
+      mnemonic,
+      label: a.label,
+      solPk: sol.exportSecretKey(sol.fromMnemonic(mnemonic, a.hdIndex ?? 0)),
+    };
   }
   const s = await decrypt<SecretPayload>(password, a.secret!).catch(() => { throw new Error("Wrong password."); });
-  return { pk: s.pk, mnemonic: s.mnemonic, label: a.label };
+  return { pk: s.pk, mnemonic: s.mnemonic, label: a.label, solPk: s.solSecret };
 }
 
 export async function wipeWallet(): Promise<void> {

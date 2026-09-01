@@ -2,24 +2,40 @@ import { useMemo, useState } from "react";
 import { isAddress, type Address } from "viem";
 import { useWallet } from "../state";
 import { ScreenHeader, Field, Spinner, useAsync, IconExt } from "../components/ui";
-import { loadPortfolio, type Row } from "../lib/portfolio";
+import { loadPortfolio, loadSolPortfolio, type Row } from "../lib/portfolio";
 import { sendNative, sendToken, waitReceipt } from "../lib/wallet";
 import { parseUnitsSafe, fmtNum, fmtUsd } from "../lib/format";
-import { txUrl } from "../lib/chain";
+import { CHAINS } from "../lib/chains";
+import * as sol from "../lib/solana";
+import { getUnlockedSol } from "../lib/keystore";
 
-export default function Send() {
-  const { address, go, toast, refresh } = useWallet();
-  const { data } = useAsync(() => loadPortfolio(address!), [address]);
+/** Stable identity for a holding — index is useless while rows load async. */
+const keyOf = (r: Row) => `${r.kind}:${r.address?.toLowerCase() || "native"}`;
+
+export default function Send({ kind, address: assetAddr }: { kind?: "native" | "token" | "stock"; address?: string } = {}) {
+  const { address, go, toast, refresh, chain, solAddress } = useWallet();
+  const svm = CHAINS[chain].vm === "svm";
+  const { data } = useAsync(
+    () => (svm ? (solAddress ? loadSolPortfolio(solAddress) : Promise.resolve({ rows: [], totalUsd: 0 })) : loadPortfolio(address!, chain)),
+    [address, solAddress, chain],
+  );
   const rows = useMemo(() => (data?.rows || []).filter((r) => r.balanceRaw > 0n), [data]);
 
-  const [selIdx, setSelIdx] = useState(0);
+  // Asset the caller opened Send for. Tapping "Send shares" on an AAPL page
+  // and landing on ETH is how someone sends the wrong asset.
+  const wanted = kind ? `${kind}:${assetAddr?.toLowerCase() || "native"}` : null;
+  const [picked, setPicked] = useState<string | null>(null);
+
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [hash, setHash] = useState<string>();
 
-  const sel: Row | undefined = rows[selIdx];
-  const toValid = isAddress(to.trim());
+  // Resolved every render rather than seeded once: rows arrive after first
+  // paint, and a dropdown change has to win over the incoming asset.
+  // Falls back to the first holding when the target has no balance to send.
+  const sel: Row | undefined = rows.find((r) => keyOf(r) === (picked ?? wanted)) ?? rows[0];
+  const toValid = svm ? sol.isSolAddress(to.trim()) : isAddress(to.trim());
   const amtRaw = sel ? parseUnitsSafe(amount, sel.decimals) : 0n;
   const amtValid = sel ? amtRaw > 0n && amtRaw <= sel.balanceRaw : false;
 
@@ -28,15 +44,31 @@ export default function Send() {
     setBusy(true);
     setHash(undefined);
     try {
-      let h: `0x${string}`;
-      if (sel.kind === "native") {
-        h = await sendNative(to.trim() as Address, amount);
+      let h: string;
+      if (svm) {
+        // Solana signs with its own keypair; the EVM wallet client has no part
+        // in it and its chainId would be meaningless here.
+        const kp = await getUnlockedSol();
+        if (!kp) throw new Error("This account has no Solana key. Import a recovery phrase to use Solana.");
+        h = await sol.solTransfer(
+          kp, to.trim(), amtRaw,
+          sel.kind === "native" ? undefined : (sel.address as unknown as string),
+          sel.decimals,
+        );
+        setHash(h);
+        toast("info", "Transaction sent");
+        await sol.confirmTx(h);
+      } else if (sel.kind === "native") {
+        h = await sendNative(to.trim() as Address, amount, chain);
+        setHash(h);
+        toast("info", "Transaction sent");
+        await waitReceipt(h as `0x${string}`, chain);
       } else {
-        h = await sendToken(sel.address!, to.trim() as Address, amtRaw);
+        h = await sendToken(sel.address!, to.trim() as Address, amtRaw, chain);
+        setHash(h);
+        toast("info", "Transaction sent");
+        await waitReceipt(h as `0x${string}`, chain);
       }
-      setHash(h);
-      toast("info", "Transaction sent");
-      await waitReceipt(h);
       toast("ok", `Sent ${amount} ${sel.symbol}`);
       await refresh();
       setAmount("");
@@ -49,20 +81,24 @@ export default function Send() {
 
   return (
     <div>
-      <ScreenHeader title="Send" />
+      <ScreenHeader title={`Send on ${CHAINS[chain].name}`} />
       <div className="space-y-4 p-4">
         {rows.length === 0 ? (
-          <div className="card p-4 text-center text-[13px] text-muted">Nothing to send yet.</div>
+          <div className="card p-4 text-center text-[13px] text-muted">
+            {svm && !solAddress
+              ? "This account has no Solana key. Solana needs a wallet created from a recovery phrase."
+              : `Nothing to send on ${CHAINS[chain].name} yet.`}
+          </div>
         ) : (
           <>
             <Field label="Asset">
               <select
                 className="input appearance-none"
-                value={selIdx}
-                onChange={(e) => setSelIdx(Number(e.target.value))}
+                value={sel ? keyOf(sel) : ""}
+                onChange={(e) => setPicked(e.target.value)}
               >
-                {rows.map((r, i) => (
-                  <option key={i} value={i}>
+                {rows.map((r) => (
+                  <option key={keyOf(r)} value={keyOf(r)}>
                     {r.symbol} - {fmtNum(r.balance)} available
                   </option>
                 ))}
@@ -107,7 +143,7 @@ export default function Send() {
             </button>
 
             {hash && (
-              <a href={txUrl(hash)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[12px] text-lime hover:underline">
+              <a href={`${CHAINS[chain].explorer}/tx/${hash}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[12px] text-lime hover:underline">
                 View on explorer <IconExt className="h-3.5 w-3.5" />
               </a>
             )}

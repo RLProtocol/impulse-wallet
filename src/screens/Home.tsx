@@ -1,19 +1,24 @@
 import { useWallet } from "../state";
 import {
-  Wordmark, Spinner, Copyable, useAsync,
+  Wordmark, Spinner, Copyable, useAsync, ChainPicker,
   IconSend, IconReceive, IconPlus, IconGear, IconChevronDown, IconCandle,
 } from "../components/ui";
 import { TokenLogo } from "../components/TokenLogo";
 import { AccountAvatar } from "./Accounts";
-import { loadPortfolio, type Row } from "../lib/portfolio";
+import { loadPortfolio, loadSolPortfolio, type Row } from "../lib/portfolio";
+import { CHAINS } from "../lib/chains";
 import { shortAddr, fmtUsd, fmtNum } from "../lib/format";
 
 export default function Home() {
-  const { address, go, lock, accounts, activeId } = useWallet();
+  const { address, go, lock, accounts, activeId, chain, solAddress, activeAddress } = useWallet();
   const active = accounts.find((a) => a.id === activeId);
+  const svm = CHAINS[chain].vm === "svm";
+  // Keyed on chain as well as address: switching network must re-read, not
+  // leave the previous chain's holdings on screen. Solana has its own loader —
+  // base58 address, token accounts instead of per-token balanceOf, no stocks.
   const { data, loading, refetch } = useAsync(
-    () => loadPortfolio(address!),
-    [address],
+    () => (svm ? (solAddress ? loadSolPortfolio(solAddress) : Promise.resolve({ rows: [], totalUsd: 0 })) : loadPortfolio(address!, chain)),
+    [address, solAddress, chain],
   );
 
   return (
@@ -24,6 +29,11 @@ export default function Home() {
         <button onClick={() => go({ name: "settings" })} className="rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-white">
           <IconGear />
         </button>
+      </div>
+
+      {/* Network */}
+      <div className="px-4 pt-3">
+        <ChainPicker />
       </div>
 
       {/* Balance card */}
@@ -41,8 +51,8 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-2">
-            <Copyable text={address || ""}>
-              <span className="font-mono text-[12px]">{shortAddr(address, 6)}</span>
+            <Copyable text={activeAddress || ""}>
+              <span className="font-mono text-[12px]">{shortAddr(activeAddress, 6)}</span>
             </Copyable>
           </div>
 
@@ -67,6 +77,7 @@ export default function Home() {
             <AssetRow
               key={r.kind + (r.address || "native")}
               row={r}
+              chain={CHAINS[chain].dexscreener}
               onClick={() => go({ name: "asset", kind: r.kind, address: r.address })}
               onChart={() => go({ name: "chart", kind: r.kind, address: r.address, symbol: r.symbol })}
             />
@@ -97,7 +108,7 @@ function Action({ label, onClick, children }: { label: string; onClick: () => vo
   );
 }
 
-function AssetRow({ row, onClick, onChart }: { row: Row; onClick: () => void; onChart: () => void }) {
+function AssetRow({ row, chain, onClick, onChart }: { row: Row; chain: string; onClick: () => void; onChart: () => void }) {
   return (
     <div
       onClick={onClick}
@@ -106,7 +117,7 @@ function AssetRow({ row, onClick, onChart }: { row: Row; onClick: () => void; on
       onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
       className="card flex w-full cursor-pointer items-center gap-3 p-3 text-left transition hover:border-lime/40"
     >
-      <TokenLogo kind={row.kind} symbol={row.symbol} address={row.address} size={38} />
+      <TokenLogo kind={row.kind} symbol={row.symbol} address={row.address} chain={chain} size={38} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[14px] font-semibold text-white">{row.symbol}</span>

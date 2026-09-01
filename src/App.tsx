@@ -1,5 +1,5 @@
 import { useWallet } from "./state";
-import { Owl, Spinner, Toasts } from "./components/ui";
+import { Logo, Spinner, Toasts } from "./components/ui";
 import Onboarding from "./screens/Onboarding";
 import Unlock from "./screens/Unlock";
 import Home from "./screens/Home";
@@ -22,7 +22,7 @@ export default function App() {
   if (!ready) {
     return (
       <div className="flex min-h-[560px] flex-col items-center justify-center gap-3">
-        <Owl className="h-12 w-12" />
+        <Logo className="h-12 w-12" />
         <Spinner className="h-5 w-5 text-lime" />
       </div>
     );
@@ -35,7 +35,7 @@ export default function App() {
   const body = (() => {
     switch (screen.name) {
       case "home": return <Home />;
-      case "send": return <Send />;
+      case "send": return <Send kind={screen.kind} address={screen.address} />;
       case "receive": return <Receive />;
       case "addToken": return <AddToken />;
       case "trade": return <Trade ca={screen.ca} />;

@@ -1,5 +1,9 @@
 import type { Address } from "viem";
 import { useWallet } from "../state";
+import { CHAINS, type ChainKey } from "../lib/chains";
+import * as sol from "../lib/solana";
+import { getUnlockedSol } from "../lib/keystore";
+import { resolveTokenChain } from "../lib/dexcore";
 import { Spinner, IconExt, useAsync } from "./ui";
 import { TokenLogo } from "./TokenLogo";
 import SwapWidget from "./SwapWidget";
@@ -8,14 +12,36 @@ import { api } from "../lib/dex";
 import type { TokenInfo } from "../lib/api";
 import { gmgn, hasGmgnKey, pick } from "../lib/gmgn";
 import { runTxBundle } from "../lib/trade";
-import { tokenBalance } from "../lib/wallet";
-import { addToken } from "../lib/tokens";
+import { nativeBalance, tokenBalance } from "../lib/wallet";
+import { addToken, untrackIfEmpty } from "../lib/tokens";
 import { formatUnitsNum, fmtUsd, fmtCompact, fmtPct, fmtNum } from "../lib/format";
 
-export default function TradePanel({ ca }: { ca: Address }) {
-  const { address, toast, refresh, go } = useWallet();
-  const info = useAsync<TokenInfo>(() => api.tokenInfo(ca), [ca]);
-  const bal = useAsync(() => tokenBalance(ca, address!), [ca, address]);
+export default function TradePanel({ ca, chain: chainProp }: { ca: Address | string; chain?: ChainKey }) {
+  const { address, toast, refresh, go, chain: activeChain } = useWallet();
+  // A pasted contract may live on a chain other than the one selected, so the
+  // token's own chain wins. Resolved once, then used for reads and for signing.
+  const resolved = useAsync(
+    async () => (chainProp ? chainProp : (await resolveTokenChain(String(ca)))?.cfg.key ?? activeChain),
+    [ca, chainProp, activeChain],
+  );
+  const chain: ChainKey = (resolved.data as ChainKey) || activeChain;
+  const svm = CHAINS[chain].vm === "svm";
+  const info = useAsync<TokenInfo>(() => api.tokenInfo(ca, chain), [ca, chain]);
+  // Native balance on the token's own chain — what a buy actually spends.
+  const nativeBal = useAsync(async () => {
+    if (svm) {
+      const kp = await getUnlockedSol();
+      return kp ? sol.solBalance(kp.address).catch(() => 0n) : 0n;
+    }
+    return address ? nativeBalance(address as Address, chain).catch(() => 0n) : 0n;
+  }, [address, chain, svm]);
+
+  const bal = useAsync(
+    async () => (svm
+      ? (await sol.splBalance((await getUnlockedSol())?.address || "", String(ca)).catch(() => ({ raw: 0n }))).raw
+      : tokenBalance(ca as Address, address!, chain)),
+    [ca, address, chain, svm],
+  );
   // GMGN token info — used for socials (website / X / telegram) if available.
   const gInfo = useAsync(async () => ((await hasGmgnKey()) ? gmgn.info(ca).catch(() => null) : null), [ca]);
   const socials = extractSocials(gInfo.data);
@@ -28,23 +54,51 @@ export default function TradePanel({ ca }: { ca: Address }) {
   if (info.error || !t)
     return (
       <div className="card p-4 text-center text-[13px] text-muted">
-        Couldn't load this token. Check the address, or it may not be tradable on Robinhood Chain yet.
+        Couldn't load this token. Check the address, or it may not be tradable on any supported chain yet.
       </div>
     );
 
   async function doBuy(amountEth: string, slippage: number, onStep: (s: string) => void) {
     onStep("Building trade…");
-    const bundle = await api.buildBuy({ ca, amountEth, address: address!, slippage });
-    const h = await runTxBundle(bundle.txs, onStep);
-    await addToken(ca, "trade", { symbol: t!.symbol, name: t!.name, decimals: t!.decimals });
+    let h: string;
+    if (svm) {
+      const kp = await getUnlockedSol();
+      if (!kp) throw new Error("This account has no Solana key. Import a recovery phrase to use Solana.");
+      onStep("Routing…");
+      const r = await sol.solBuy(kp, String(ca), Number(amountEth), slippage);
+      onStep(`Confirming (${r.via})…`);
+      await sol.confirmTx(r.signature);
+      h = r.signature;
+    } else {
+      const bundle = await api.buildBuy({ ca: ca as Address, amountEth, address: address!, slippage, chain });
+      h = await runTxBundle(bundle.txs, onStep, chain);
+    }
+    await addToken(ca as Address, "trade", { symbol: t!.symbol, name: t!.name, decimals: t!.decimals }, chain);
     toast("ok", `Bought ${t!.symbol}`);
     await Promise.all([refresh(), bal.refetch()]);
     return h;
   }
   async function doSell(pct: number, slippage: number, onStep: (s: string) => void) {
     onStep("Building trade…");
-    const bundle = await api.buildSell({ ca, pct, address: address!, slippage });
-    const h = await runTxBundle(bundle.txs, onStep);
+    let h: string;
+    if (svm) {
+      const kp = await getUnlockedSol();
+      if (!kp) throw new Error("This account has no Solana key. Import a recovery phrase to use Solana.");
+      onStep("Routing…");
+      const r = await sol.solSell(kp, String(ca), pct, slippage);
+      onStep(`Confirming (${r.via})…`);
+      await sol.confirmTx(r.signature);
+      h = r.signature;
+    } else {
+      const bundle = await api.buildSell({ ca: ca as Address, pct, address: address!, slippage, chain });
+      h = await runTxBundle(bundle.txs, onStep, chain);
+    }
+    if (pct >= 100) {
+      const left = svm
+        ? (await sol.splBalance((await getUnlockedSol())?.address || "", String(ca)).catch(() => ({ raw: 1n }))).raw
+        : await tokenBalance(ca as Address, address!, chain).catch(() => 1n);
+      await untrackIfEmpty(ca as Address, chain, left).catch(() => false);
+    }
     toast("ok", `Sold ${pct}% ${t!.symbol}`);
     await Promise.all([refresh(), bal.refetch()]);
     return h;
@@ -100,6 +154,8 @@ export default function TradePanel({ ca }: { ca: Address }) {
       <SwapWidget
         token={{ kind: "token", symbol: t.symbol, name: t.name, address: t.address, decimals, priceUsd: t.priceUsd, logo: t.logo }}
         balanceRaw={bal.data ?? 0n}
+        chain={chain}
+        nativeRaw={nativeBal.data ?? 0n}
         onBuy={doBuy}
         onSell={doSell}
       />

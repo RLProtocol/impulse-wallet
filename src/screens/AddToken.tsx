@@ -8,7 +8,7 @@ import { fmtUsd } from "../lib/format";
 import { api } from "../lib/dex";
 
 export default function AddToken() {
-  const { toast, back } = useWallet();
+  const { toast, back, chain } = useWallet();
   const [ca, setCa] = useState("");
   const [meta, setMeta] = useState<{ symbol: string; name: string; decimals: number; priceUsd?: number | null }>();
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function AddToken() {
     setLoading(true);
     setMeta(undefined);
     try {
-      const m = await tokenMeta(ca.trim() as Address);
+      const m = await tokenMeta(ca.trim() as Address, chain);
       let priceUsd: number | null | undefined = undefined;
       try {
         const info = await api.tokenInfo(ca.trim());
@@ -39,7 +39,7 @@ export default function AddToken() {
     if (!meta) return;
     setSaving(true);
     try {
-      await addToken(ca.trim() as Address, "custom", meta);
+      await addToken(ca.trim() as Address, "custom", meta, chain);
       toast("ok", `${meta.symbol} added`);
       back();
     } catch (e: any) {
