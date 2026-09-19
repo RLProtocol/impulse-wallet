@@ -6,3 +6,10 @@ server/.venv
 server/__pycache__
 server/.env
 __pycache__
+.env.local
+
+# build artifacts
+*.zip
+tsconfig.tsbuildinfo
+dist-firefox
+.DS_Store

@@ -20,6 +20,9 @@ export type Screen =
   | { name: "chart"; kind: "native" | "token" | "stock"; address?: string; symbol?: string }
   | { name: "holders"; ca: string; symbol?: string }
   | { name: "accounts" }
+  | { name: "leaderboard" }
+  | { name: "popularity" }
+  | { name: "copytrade"; handle?: string }
   | { name: "settings" };
 
 type Toast = { id: number; kind: "ok" | "err" | "info"; msg: string };
@@ -142,8 +145,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       await touchActivity();
       setNeedsSecurity(!(await getSecurityAck()));
       await refresh();
-      const ca = new URLSearchParams(location.search).get("ca");
+      const params = new URLSearchParams(location.search);
+      const ca = params.get("ca");
       if (ca && /^0x[0-9a-fA-F]{40}$/.test(ca)) setStack([{ name: "home" }, { name: "trade", ca }]);
+      const copy = params.get("copy");
+      if (copy && /^[A-Za-z0-9_]{1,15}$/.test(copy)) setStack([{ name: "home" }, { name: "copytrade", handle: copy }]);
     }
     setReady(true);
   }, [refresh]);

@@ -70,7 +70,7 @@ function Monogram({ symbol, size }: { symbol: string; size: number }) {
   const bg = colorFor(symbol || "?");
   return (
     <div
-      className="grid shrink-0 place-items-center rounded-full font-display font-bold text-[hsl(156_40%_7%)]"
+      className="grid shrink-0 place-items-center rounded-full font-display font-bold text-[#0A0F06]"
       style={{ width: size, height: size, background: bg, fontSize: Math.max(9, size * 0.34) }}
     >
       {label}

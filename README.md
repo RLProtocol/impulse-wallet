@@ -1,11 +1,11 @@
-# HoodX Wallet
+# Impulse Wallet
 
-A HoodX-branded Web3 wallet for **Robinhood Chain (4663)**, shipped as a Chrome
+An Impulse-branded Web3 wallet for **Robinhood Chain (4663)**, shipped as a Chrome
 (Manifest V3) extension. Create/import a wallet, hold ETH + tokens + tokenized
 stocks, trade any Robinhood-Chain token by pasting its address, and buy/sell
 stocks (AAPL, TSLA, NVDA, …) — all non-custodial, keys encrypted on-device.
 
-The complex swap logic is reused verbatim from the HoodX bot's
+The complex swap logic is reused verbatim from the Impulse bot's
 `robinhoodcode.py` (Uniswap V4/V3/V2 + the USDG stock route). A small Python API
 **builds** the unsigned transactions; the extension **signs** them locally.
 
@@ -68,14 +68,14 @@ Then in Chrome:
 1. Go to `chrome://extensions`
 2. Enable **Developer mode** (top-right)
 3. **Load unpacked** → select the `dist/` folder
-4. Pin the HoodX owl and open it
+4. Pin the Impulse icon and open it
 
 On first run: **Create** or **Import** a wallet (12-word phrase or private key),
 set a password (encrypts the key locally with AES-GCM).
 
 ## 3. Point the wallet at your API
 
-Open the extension → **Settings → HoodX Trade API** → paste your API URL (or keep
+Open the extension → **Settings → Impulse Trade API** → paste your API URL (or keep
 `http://localhost:8787` for local dev) → **Save**.
 
 You can also bake a default in at build time:
@@ -95,7 +95,7 @@ VITE_STRIX_API=https://your-api.up.railway.app npm run build
 - **Stocks** — AAPL, TSLA, NVDA, MSFT, GOOGL, AMZN, META, SPY. Buy/sell via the
   ETH → USDG → stock V4 route; send shares like any token.
 - **X (Twitter)** — the content script detects contract addresses in tweets and
-  adds a lime **Buy on HoodX** pill that opens the wallet's Trade view.
+  adds a lime **Buy on Impulse** pill that opens the wallet's Trade view.
 
 ## Security notes
 

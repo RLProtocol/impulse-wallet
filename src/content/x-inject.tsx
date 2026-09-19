@@ -98,7 +98,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const esc = (s: string) =>
   (s || "").replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" }[c] || c));
 
-const LOGO = `<img src="${chrome.runtime.getURL("icons/icon48.png")}" width="16" height="16" style="border-radius:4px;display:block" alt=""/>`;
+const LOGO = `<img src="${chrome.runtime.getURL("icons/mascot.png")}" width="16" height="16" style="border-radius:8px;display:block" alt=""/>`;
 /** Order ticket. A receipt/slip shape reads as "trade" without a dollar sign. */
 const TRADEI = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v18l2.5-1.6L10 21l2-1.6L14 21l2.5-1.6L19 21V3z"/><path d="M9 8h6M9 12h6"/></svg>`;
 const CANDLES = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 4v3"/><rect x="7" y="7" width="4" height="9" rx="1"/><path d="M9 16v3"/><path d="M17 2v4"/><rect x="15" y="6" width="4" height="7" rx="1"/><path d="M17 13v4"/></svg>`;
@@ -147,11 +147,11 @@ const DEBUG = (() => {
   try { return localStorage.getItem("impulseDebug") === "1"; } catch { return false; }
 })();
 const dlog = (...a: any[]) => {
-  if (DEBUG) console.log("%c[impulse]", "background:#c6f24a;color:#000;padding:1px 4px;border-radius:3px", ...a);
+  if (DEBUG) console.log("%c[impulse]", "background:#b6f03c;color:#000;padding:1px 4px;border-radius:6px", ...a);
 };
-const PUMP_MARK = `<img src="${chrome.runtime.getURL("icons/pumpfun.png")}" width="17" height="17" style="display:block;border-radius:4px" alt=""/>`;
-const PUMP_MARK_SM = `<img src="${chrome.runtime.getURL("icons/pumpfun.png")}" width="15" height="15" style="display:block;border-radius:3px" alt=""/>`;
-const LOGO_LG = `<img src="${chrome.runtime.getURL("icons/icon48.png")}" width="34" height="34" style="border-radius:10px;display:block" alt=""/>`;
+const PUMP_MARK = `<img src="${chrome.runtime.getURL("icons/pumpfun.png")}" width="17" height="17" style="display:block;border-radius:8px" alt=""/>`;
+const PUMP_MARK_SM = `<img src="${chrome.runtime.getURL("icons/pumpfun.png")}" width="15" height="15" style="display:block;border-radius:6px" alt=""/>`;
+const LOGO_LG = `<img src="${chrome.runtime.getURL("icons/mascot.png")}" width="34" height="34" style="border-radius:14px;display:block" alt=""/>`;
 const BUBBLES = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="9" r="4.5"/><circle cx="17" cy="7" r="2.5"/><circle cx="15.5" cy="16.5" r="3.5"/><path d="M11.5 11.8 13 14"/><path d="M12.3 8.2 14.6 7.6"/></svg>`;
 
 // ── GMGN helpers (safety checks, holder tags) ───────────────────────────────
@@ -303,7 +303,8 @@ const STYLES = `
 
     align-items:flex-end;gap:0;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px)}
 
-  .dock .pill{margin-top:0;order:2;box-shadow:0 10px 30px -10px rgba(0,0,0,.75)}
+  .dock .pill{margin-top:0;order:2;box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
+  .dock .pill + .pill{margin-top:6px}
 
   .dock .panel{order:1;margin-top:0;margin-bottom:9px;max-height:calc(100vh - 96px);overflow-y:auto;
 
@@ -311,9 +312,9 @@ const STYLES = `
 
   .dockx{order:3;margin-top:6px;align-self:flex-end;background:none;border:0;cursor:pointer;
 
-    font:600 10.5px ui-monospace,monospace;color:#7d8d75;letter-spacing:.08em;padding:2px 4px}
+    font:500 10.5px "ImpulseMono",ui-monospace,monospace;color:#8fa088;letter-spacing:.08em;padding:3px 5px;border-radius:8px;transition:.12s}
 
-  .dockx:hover{color:#c6f24a}
+  .dockx:hover{color:#b6f03c}
 
   @media (max-width:520px){
 
@@ -325,17 +326,43 @@ const STYLES = `
 
   }
 
-  .pill{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:7px 13px;border-radius:999px;
-
-    background:linear-gradient(180deg,#b6f24a,#96d92e);border:1px solid #8fd41f;color:#0b140c;font-weight:800;
-
-    font-size:12px;line-height:1;cursor:pointer;transition:.15s;box-shadow:0 5px 16px -6px rgba(120,190,20,.6)}
-
-  .pill:hover{filter:brightness(1.05);transform:translateY(-1px)}
-
+  /* The one control we put on somebody else's page. It has to read as a
+     trading control rather than an ad: the gradient, the 999px capsule and the
+     lime glow were all badge language, and next to a terminal they looked like
+     something bolted on. Flat accent, the drawer's own corner radius, and the
+     label set in the bundled type at the weight the drawer uses. The caret is
+     the only decoration and it earns its place — it says this opens a panel
+     rather than firing a trade, which on a buy button is worth being clear
+     about. */
+  .pill{display:inline-flex;align-items:center;gap:7px;margin-top:8px;
+    padding:7px 11px 7px 8px;border-radius:9px;
+    background:#b6f03c;border:1px solid #a9db2c;color:#0a1005;
+    font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:12px;font-weight:600;line-height:1;letter-spacing:-.005em;
+    cursor:pointer;transition:background .12s,transform .12s,box-shadow .12s;
+    box-shadow:0 1px 2px rgba(0,0,0,.28)}
+  .pill img{width:17px;height:17px;border-radius:8px;flex:0 0 auto}
+  .pill span{white-space:nowrap}
+  .pill::after{content:"›";margin-left:1px;font-size:14px;line-height:1;
+    color:rgba(10,16,5,.5);transition:transform .12s,color .12s}
+  /* The secondary action in a dock that has two. Same geometry so the pair
+     reads as one control group, without a second lime button competing for the
+     eye — there is only ever one primary thing to do here. */
+  .pill.alt{background:var(--surface,#151a21);border-color:#2f3947;color:#e8edf4;
+    box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .pill.alt::after{color:rgba(232,237,244,.45)}
+  .pill.alt:hover{background:#1b222b;border-color:#3f4c5c}
+  .pill.alt:hover::after{color:rgba(232,237,244,.85)}
+  .pill.alt:active{background:#12171d}
+  .pill.hidden{display:none}
+  .pill:hover{background:#d4ff5b;transform:translateY(-1px);
+    box-shadow:0 4px 12px -4px rgba(120,190,20,.55)}
+  .pill:hover::after{transform:translateX(2px);color:rgba(10,16,5,.8)}
+  .pill:active{transform:translateY(0);background:#b8e43c;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .pill:focus-visible{outline:2px solid #b6f03c;outline-offset:2px}
   .pill svg{opacity:.9}
 
-  .panel{margin-top:9px;width:100%;max-width:436px;border-radius:18px;overflow:hidden;color:#ffffff;
+  .panel{margin-top:9px;width:100%;max-width:436px;border-radius:24px;overflow:hidden;color:#ffffff;
 
     background:linear-gradient(180deg,#101c13,#0a110c);border:1px solid #223528;
 
@@ -353,11 +380,11 @@ const STYLES = `
 
   .chainchip{font-size:8.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;
 
-    padding:2px 5px;border-radius:5px;color:#0b140c}
+    padding:2px 5px;border-radius:9px;color:#0b140c}
 
   .chainchip.withmark{display:inline-flex;align-items:center;gap:3px;border:1px solid rgba(153,69,255,.5)}
 
-  .stockline{margin:0 14px 12px;background:#111d15;border:1px solid #1e2f24;border-radius:12px;padding:9px 11px;
+  .stockline{margin:0 14px 12px;background:#111d15;border:1px solid #1e2f24;border-radius:16px;padding:9px 11px;
 
     font-size:11.5px;color:#dfeeda;text-align:center}
 
@@ -365,7 +392,7 @@ const STYLES = `
 
   .head{display:flex;align-items:center;gap:11px;padding:14px 14px 12px}
 
-  .logo{width:42px;height:42px;border-radius:13px;object-fit:cover;flex:0 0 auto;background:#16241a;
+  .logo{width:42px;height:42px;border-radius:17px;object-fit:cover;flex:0 0 auto;background:#16241a;
 
     border:1px solid #2a3f30;display:grid;place-items:center;color:#a3e635}
 
@@ -377,7 +404,7 @@ const STYLES = `
 
   .badge{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#bff45f;
 
-    background:rgba(163,230,53,.12);border:1px solid rgba(163,230,53,.32);border-radius:6px;padding:2px 5px}
+    background:rgba(163,230,53,.12);border:1px solid rgba(163,230,53,.32);border-radius:10px;padding:2px 5px}
 
   .name{font-size:11.5px;color:#dfeeda;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -423,23 +450,23 @@ const STYLES = `
 
   .stats{display:flex;gap:7px;padding:0 14px 12px}
 
-  .stat{flex:1;background:#111d15;border:1px solid #1e2f24;border-radius:12px;padding:8px 6px;text-align:center}
+  .stat{flex:1;background:#111d15;border:1px solid #1e2f24;border-radius:16px;padding:8px 6px;text-align:center}
 
   .stat span{display:block;font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#c8dcc0;margin-bottom:3px}
 
   .stat b{font-weight:800;font-size:13px;color:#ffffff}
 
-  .hold{margin:0 14px 11px;background:rgba(163,230,53,.07);border:1px solid rgba(163,230,53,.18);border-radius:12px;
+  .hold{margin:0 14px 11px;background:rgba(163,230,53,.07);border:1px solid rgba(163,230,53,.18);border-radius:16px;
 
     padding:8px 11px;font-size:12px;color:#dfeeda}
 
   .hold b{color:#fff}
 
-  .seg{display:flex;gap:5px;margin:0 14px 10px;background:#111d15;border:1px solid #1e2f24;border-radius:12px;padding:4px}
+  .seg{display:flex;gap:5px;margin:0 14px 10px;background:#111d15;border:1px solid #1e2f24;border-radius:16px;padding:4px}
 
   .seg button{flex:1;border:0;background:transparent;color:#dfeeda;font-weight:800;font-size:13px;padding:8px 0;
 
-    border-radius:9px;cursor:pointer;transition:.15s}
+    border-radius:13px;cursor:pointer;transition:.15s}
 
   .seg button.chartbtn{flex:0 0 48px;display:grid;place-items:center;padding:7px 0}
 
@@ -447,7 +474,7 @@ const STYLES = `
 
   .tfrow{display:flex;gap:5px;margin:0 14px 10px;align-items:center}
 
-  .tfbtn{flex:1;padding:6px 0;border-radius:9px;background:#111d15;color:#dfeeda;border:1px solid #1e2f24;
+  .tfbtn{flex:1;padding:6px 0;border-radius:13px;background:#111d15;color:#dfeeda;border:1px solid #1e2f24;
 
     font-weight:700;font-size:11.5px;cursor:pointer;transition:.12s}
 
@@ -457,7 +484,7 @@ const STYLES = `
 
   .tfchg{flex:0 0 auto;font-size:11.5px;font-weight:800;padding:0 4px}
 
-  .chartbox{margin:0 14px 12px;background:#0d1712;border:1px solid #1e2f24;border-radius:12px;overflow:hidden;min-height:120px}
+  .chartbox{margin:0 14px 12px;background:#0d1712;border:1px solid #1e2f24;border-radius:16px;overflow:hidden;min-height:120px}
 
   .socials{display:flex;gap:12px;margin:-4px 14px 10px;font-size:11px}
 
@@ -465,131 +492,18 @@ const STYLES = `
 
   .socials a:hover{color:#bff45f;text-decoration:underline}
 
-  .secbar{margin:0 14px 11px;display:flex;align-items:center;gap:7px;border-radius:12px;border:1px solid #1e2f24;
+  .secbar{margin:0 14px 11px;display:flex;align-items:center;gap:7px;border-radius:16px;border:1px solid #1e2f24;
 
     padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer}
 
   .secbar i{margin-left:auto;font-style:normal;font-weight:600;font-size:10.5px;opacity:.75}
 
-  /* ── FOMO thesis feed ─────────────────────────────────────────────── */
-
-  /* Laid out as a conversation rather than a data table: avatar, name, then the
-
-     position stated at display size because the number IS the argument. A rail
-
-     runs from the avatar down the row to tie the claim to its author. */
-
-  .thesis{position:relative;margin:0 14px;padding:8px 0 9px;border-bottom:1px solid #17241b}
-
-  .thesis:last-of-type{border-bottom:0}
-
-  .trow{display:flex;gap:8px;align-items:flex-start}
-
-  .tavwrap{position:relative;flex:0 0 auto}
-
-  /* Thread rail — anchors the body to the avatar the way a reply does. */
-
-  .tavwrap::after{content:"";position:absolute;left:50%;top:28px;bottom:-9px;width:1px;
-
-    background:linear-gradient(#26382b,rgba(38,56,43,0));transform:translateX(-.5px)}
-
-  .thesis:last-of-type .tavwrap::after{display:none}
-
-  .trank{position:absolute;right:-3px;bottom:-3px;min-width:13px;height:13px;padding:0 3px;
-
-    border-radius:99px;background:#0a120d;border:1px solid #2f4636;color:#a9cf95;
-
-    font:800 8px/12px ui-monospace,monospace;text-align:center}
-
+  /* The author's picture, used by every card feed. */
   .tav{flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
-
     overflow:hidden;user-select:none;border:1px solid #26382b}
 
-  .tbody{flex:1 1 auto;min-width:0}
-
-
-
-  .thead{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-
-  .tname{font-weight:800;font-size:10.5px;color:#fff;letter-spacing:-.01em}
-
-  .tbadge{font-size:7.5px;font-weight:800;letter-spacing:.04em;padding:1px 5px;border-radius:5px;
-
-    background:rgba(120,170,255,.14);color:#8fb8ff;border:1px solid rgba(120,170,255,.28)}
-
-  .tdev{font-size:7.5px;font-weight:900;letter-spacing:.05em;padding:1px 5px;border-radius:5px;
-
-    background:rgba(251,191,36,.16);color:#fbbf24;border:1px solid rgba(251,191,36,.32)}
-
-  .twhen{font-size:8.5px;color:#7f9478;margin-left:auto;white-space:nowrap}
-
-
-
-  /* The position line. Big, tabular, and the only display-size type in the row. */
-
-  .tpos{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap}
-
-  .tkind{font-size:8.5px;font-weight:700;color:#7f9478;letter-spacing:.02em}
-
-  /* Market cap at call time. Muted against the multiple beside it: the multiple
-
-     is the claim, the cap is the context for it. */
-
-  .tcap{font-size:10.5px;font-weight:700;color:#cfe0c6;font-variant-numeric:tabular-nums}
-
-  .tcap.up{color:#9fbf8f} .tcap.dn{color:#c99}
-
+  /* Still used by the trader profile page, which is unchanged. */
   .tver{font-size:9px;font-weight:900;color:#59e08a;line-height:1}
-
-  .tx{font-size:9px;font-weight:700;color:#8fb8ff;text-decoration:none}
-
-  .tx:hover{text-decoration:underline}
-
-  .theld{font-size:12.5px;font-weight:800;color:#fff;letter-spacing:-.02em;
-
-    font-variant-numeric:tabular-nums}
-
-  .tdot{width:4px;height:4px;border-radius:99px;background:#59e08a;flex:0 0 auto}
-
-  .tdot.dn{background:#ff7a7a}
-
-  .tpct{font-size:9.5px;font-weight:800;font-variant-numeric:tabular-nums}
-
-  .tpct.up{color:#59e08a} .tpct.dn{color:#ff7a7a}
-
-  .ttook{font-size:8.5px;font-weight:700;color:#9fbf8f}
-
-
-
-  .ttext{margin-top:5px;font-size:10.5px;line-height:1.45;color:#eef6ea;
-
-    word-break:break-word;white-space:pre-wrap}
-
-  .ttext a{color:#8fb8ff;text-decoration:none;word-break:break-all}
-
-  .ttext a:hover{text-decoration:underline}
-
-
-
-  .tfoot{margin-top:6px;display:flex;align-items:center;gap:11px}
-
-  .tstat{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:#7f9478}
-
-  .tstat svg{width:9.5px;height:9.5px;fill:none;stroke:currentColor;stroke-width:2.1}
-
-
-
-  .fhead{display:flex;align-items:center;gap:6px;margin:0 14px 2px;padding-bottom:7px;
-
-    border-bottom:1px solid #17241b}
-
-  .fhead img{opacity:.92}
-
-  .fttl{font-size:10px;font-weight:800;color:#ffffff;letter-spacing:-.01em}
-
-  .fsub{margin-left:auto;font-size:8.5px;font-weight:700;color:#7f9478;font-variant-numeric:tabular-nums}
-
-
 
   /* Coming-soon panel. Centred and quiet — it is a promise, not a feature, and
 
@@ -599,7 +513,7 @@ const STYLES = `
 
     align-items:center;gap:0}
 
-  .soonlogo{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;
+  .soonlogo{width:52px;height:52px;border-radius:20px;display:grid;place-items:center;
 
     background:#111d15;border:1px solid #1e2f24;margin-bottom:12px}
 
@@ -615,188 +529,126 @@ const STYLES = `
 
   .soonrow{margin-top:14px;display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
 
-  .soonchip{font-size:9px;font-weight:700;padding:3px 8px;border-radius:7px;
+  .soonchip{font-size:9px;font-weight:700;padding:3px 8px;border-radius:11px;
 
     background:#111d15;border:1px solid #1e2f24;color:#9fbf8f}
 
   /* ── trader profile panel ─────────────────────────────────────────── */
 
-  /* Given more room than the trade panel on purpose: this is read, not acted
-
-     on, so the numbers get space to be legible rather than compact. */
-
-  .panel.wide{max-width:462px}
-
-  .tp{padding:18px 18px 16px;display:flex;flex-direction:column;gap:16px}
-
-
-
-  .tphead{display:flex;align-items:center;gap:13px}
-
-  .tpav{width:52px;height:52px;border-radius:50%;overflow:hidden;flex:0 0 auto;
-
-    background:#111d15;border:1px solid #2a3f30;display:grid;place-items:center}
-
-  .tpmeta{min-width:0;flex:1}
-
-  .tpname{display:flex;align-items:center;gap:6px;font-size:18px;font-weight:800;color:#fff;
-
-    letter-spacing:-.025em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-  .tphandle{margin-top:1px;font-size:12px;color:#7f9478;font-weight:600}
-
-  .tpsrc{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}
-
-  .srcchip{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;
-
-    padding:3px 7px;border-radius:7px;background:#111d15;border:1px solid #1e2f24;color:#a9cf95}
-
-  .tpfol{flex:0 0 auto;text-align:right}
-
-  .tpfol b{display:block;font-size:15px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-
-  .tpfol span{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7f9478}
-
-
-
-  /* The link badge is the panel's honesty: it says how sure we are that this
-
-     profile belongs to the handle on screen, and it never overstates. */
-
-  .tvbadge{font-size:10.5px;line-height:1.45;font-weight:600;padding:8px 11px;border-radius:9px;
-
-    background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.22);color:#d9ac52}
-
-  .tvbadge b{display:block;font-size:11px;font-weight:800;color:#e8bd63;margin-bottom:1px}
-
-  .tvbadge.ok{background:rgba(89,224,138,.07);border-color:rgba(89,224,138,.24);color:#8fcfa5}
-
-  .tvbadge.ok b{color:#59e08a}
-
-  /* Corroborated but unconfirmed: its own colour, so it reads as neither a
-
-     verified link nor a bare guess. */
-
-  .tvbadge.mid{background:rgba(120,170,255,.07);border-color:rgba(120,170,255,.22);color:#9dbbe8}
-
-  .tvbadge.mid b{color:#8fb8ff}
-
-
-
-  .tpsec{display:flex;flex-direction:column;gap:9px}
-
-  .tplbl{display:flex;align-items:baseline;gap:8px;font-size:9.5px;font-weight:800;
-
-    letter-spacing:.13em;text-transform:uppercase;color:#7f9478}
-
-  .tpcount{margin-left:auto;letter-spacing:0;text-transform:none;font-weight:600;color:#5f7359}
-
-  .tpempty{font-size:11.5px;color:#7f9478;padding:14px;text-align:center;
-
-    background:#111d15;border:1px solid #1e2f24;border-radius:11px}
-
-
-
-  .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-
-  .pcell,.scell{background:#111d15;border:1px solid #1e2f24;border-radius:11px;
-
-    padding:10px 8px;text-align:center}
-
-  .plbl{font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#adc7a1}
-
-  .pval{display:block;margin-top:5px;font-size:14px;font-weight:800;color:#fff;
-
-    font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-
-  .pval.up{color:#59e08a} .pval.dn{color:#ff7a7a}
-
-  .sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-
-  .sval{display:block;margin-top:5px;font-size:13px;font-weight:800;color:#fff;
-
-    font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-
-
-
-  .ttabs{display:flex;gap:4px;padding:3px;background:#0d1710;border:1px solid #1e2f24;border-radius:11px}
-
-  .ttab{flex:1;display:flex;align-items:baseline;justify-content:center;gap:6px;padding:8px 6px;
-
-    border:0;border-radius:8px;background:none;cursor:pointer;color:#7f9478;
-
-    font:800 11px/1 "Sora",sans-serif;letter-spacing:-.01em;transition:background .12s,color .12s}
-
-  .ttab span{font-weight:700;font-size:9.5px;color:#5f7359;font-variant-numeric:tabular-nums}
-
-  .ttab:hover{color:#c8dcc0}
-
-  .ttab.on{background:#1a2b1f;color:#fff}
-
-  .ttab.on span{color:#9fbf8f}
-
-  .tstatus{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;
-
-    background:#0d1710;border:1px solid #26382b;color:#7f9478}
-
-  .tstatus.open{border-color:rgba(163,230,53,.28);color:#bff45f}
-
-  .tstatus.up{border-color:rgba(89,224,138,.3);color:#59e08a}
-
-  .tstatus.dn{border-color:rgba(255,122,122,.3);color:#ff7a7a}
-
-  .liveh{display:flex;align-items:center;gap:6px;margin:2px 0 6px;font-size:9.5px;font-weight:800;
-
-    letter-spacing:.12em;text-transform:uppercase;color:#59e08a}
-
-  .livedot{width:5px;height:5px;border-radius:99px;background:#59e08a;
-
-    box-shadow:0 0 7px #59e08a;animation:pulse 1.6s infinite}
-
-  /* Dates the snapshot rather than hiding that it is one. */
-
-  .hlist + .liveh{margin-top:12px}
-
-  .twhen2{width:26px;text-align:right;font-size:9.5px;font-weight:700;color:#5f7359;
-
-    font-variant-numeric:tabular-nums}
-
-  .hlist{display:flex;flex-direction:column;gap:2px}
-
-  .hrow2{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:10px;
-
-    background:#111d15;border:1px solid #1e2f24;text-decoration:none}
-
-  .hrow2.link{cursor:pointer;transition:background .12s,border-color .12s}
-
-  .hrow2.link:hover{background:#16241a;border-color:#2f4636}
-
-  .hrow2.link:hover .hgo{opacity:1;transform:translate(1px,-1px)}
-
-  .hsym{flex:1;font-size:13px;font-weight:800;color:#fff;letter-spacing:-.01em;
-
+  /* ── the trader profile ──────────────────────────────────────────────
+     Opens as the same right-hand drawer as everything else. It used to be a
+     bottom-right card in its own green palette, which made the one screen that
+     reads a PERSON look like a different product from the screen that reads a
+     token — and it capped the numbers at a 462px card while a page of PnL,
+     positions and trades wanted the height.
+
+     The components are deliberately the ones the token drawer already uses:
+     the .hsum strip, the .tclabel section headers, the .tfseg tab control and
+     the .hrow row with its .hfill width bar. A position is read the same way
+     here as in the holders table because it is the same kind of fact. */
+  .drawer .tp{display:flex;flex-direction:column}
+
+  .drawer .tphead{display:flex;align-items:center;gap:11px;padding:13px 14px;
+    border-bottom:1px solid var(--line);background:var(--bg);
+    position:sticky;top:20px;z-index:2}
+  .drawer .tpav{width:38px;height:38px;border-radius:50%;overflow:hidden;flex:0 0 auto;
+    background:var(--surface);border:1px solid var(--line);display:grid;place-items:center}
+  .drawer .tpmeta{min-width:0;flex:1}
+  .drawer .tpname{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;
+    color:var(--text);letter-spacing:-.01em;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drawer .tphandle{margin-top:1px;font-size:11.5px;color:var(--muted);font-weight:500}
+  .drawer .hchain{position:relative;flex:0 0 auto;font-size:8.5px;font-weight:600;
+    letter-spacing:.06em;text-transform:uppercase;padding:2px 5px;border-radius:6px;
+    background:var(--surface);border:1px solid var(--line);color:var(--faint)}
+  .drawer .tpfol{flex:0 0 auto;text-align:right;margin-right:2px}
+  .drawer .tpfol b{display:block;font-size:14px;font-weight:600;color:var(--text);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .tpfol span{font-size:9px;font-weight:600;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted)}
+  .drawer .srcchip{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;
+    font-weight:500;padding:3px 6px;border-radius:6px;background:var(--surface);
+    border:1px solid var(--line);color:var(--muted)}
+  .drawer .tpsrc{display:flex;gap:5px;flex-wrap:wrap;padding:9px 14px 0}
 
-  .hval2{font-size:13px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  /* The link strip is the panel's honesty: how sure we are that this profile
+     belongs to the handle on screen. A coloured left edge rather than a filled
+     card, because it is a qualifier on everything below it, not an alert. */
+  .drawer .tvbadge{font-size:11px;line-height:1.45;font-weight:500;
+    margin:11px 14px 0;padding:8px 11px;border-radius:6px;
+    background:var(--surface);border-left:2px solid #e0b252;color:var(--muted)}
+  .drawer .tvbadge b{color:#e0b252;font-weight:600}
+  .drawer .tvbadge.ok{border-left-color:var(--up)}
+  .drawer .tvbadge.ok b{color:var(--up)}
+  .drawer .tvbadge.mid{border-left-color:#8fc0ff}
+  .drawer .tvbadge.mid b{color:#8fc0ff}
 
-  .hchg{width:56px;text-align:right;font-size:11px;font-weight:700;
+  .drawer .tpsec{display:flex;flex-direction:column}
+  .drawer .tpempty{font-size:11.5px;color:var(--faint);padding:26px 14px;text-align:center}
 
-    font-variant-numeric:tabular-nums;color:#7f9478}
+  /* Realised profit by window, and the track-record grid. Both are figure
+     tiles, so they share one cell style and differ only in column count. */
+  .drawer .pgrid{display:grid;grid-template-columns:repeat(3,1fr);
+    border-bottom:1px solid var(--line)}
+  .drawer .sgrid{display:grid;grid-template-columns:repeat(3,1fr);
+    border-bottom:1px solid var(--line)}
+  .drawer .pcell,.drawer .scell{padding:10px 12px;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;gap:3px;min-width:0}
+  .drawer .pgrid .pcell:nth-child(3n),.drawer .sgrid .scell:nth-child(3n){border-right:0}
+  .drawer .sgrid .scell:nth-child(n+4){border-top:1px solid #1a212a}
+  .drawer .plbl{font-size:9.5px;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drawer .pval,.drawer .sval{display:block;font-size:14px;font-weight:600;color:var(--text);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums;
+    letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drawer .sval{font-size:13px}
+  .drawer .pval.up{color:var(--up)} .drawer .pval.dn{color:var(--down)}
 
-  .hchg.up{color:#59e08a} .hchg.dn{color:#ff7a7a}
+  /* Positions and trades: the token drawer's row, so a holding reads the same
+     way on a person as on a token. */
+  .drawer .hlist{display:flex;flex-direction:column}
+  .drawer .hrow2{position:relative;display:flex;align-items:center;gap:9px;
+    padding:9px 14px;border-bottom:1px solid #1a212a;text-decoration:none;
+    overflow:hidden;transition:background .12s}
+  .drawer .hrow2.link{cursor:pointer}
+  .drawer .hrow2.link:hover{background:rgba(255,255,255,.05)}
+  .drawer .hrow2.link:hover .hsym{color:#8fc0ff}
+  .drawer .hrow2.link:hover .hgo{opacity:1;transform:translate(1px,-1px)}
+  .drawer .hsym{position:relative;flex:1;min-width:0;font-size:12.5px;font-weight:600;
+    color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    transition:color .12s}
+  .drawer .hval2{position:relative;font-size:12.5px;font-weight:600;color:var(--text);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .hchg{position:relative;width:58px;text-align:right;font-size:11.5px;font-weight:600;
+    color:var(--muted);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .hchg.up{color:var(--up)} .drawer .hchg.dn{color:var(--down)}
+  .drawer .hgo{position:relative;flex:0 0 auto;font-size:10px;color:var(--faint);
+    opacity:0;transition:opacity .12s,transform .12s}
+  .drawer .twhen2{position:relative;width:30px;text-align:right;font-size:10px;
+    font-weight:500;color:var(--faint);font-variant-numeric:tabular-nums}
+  .drawer .tstatus{position:relative;font-size:9px;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;padding:2px 5px;border-radius:6px;
+    background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+  .drawer .tstatus.open{color:var(--accent);border-color:rgba(198,242,74,.3)}
+  .drawer .tstatus.up{color:var(--up);border-color:rgba(140,224,74,.32)}
+  .drawer .tstatus.dn{color:var(--down);border-color:rgba(246,70,93,.3)}
 
-  .hgo{flex:0 0 auto;font-size:11px;color:#7f9478;opacity:.45;transition:opacity .12s,transform .12s}
+  .drawer .liveh{display:flex;align-items:center;gap:6px;padding:8px 14px;
+    border-bottom:1px solid var(--line);font-size:9.5px;font-weight:600;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--up)}
+  .drawer .livedot{width:5px;height:5px;border-radius:99px;background:var(--up);
+    box-shadow:0 0 7px var(--up);animation:pulse 1.6s infinite}
+  .drawer .hlist + .liveh{border-top:1px solid var(--line)}
 
-
-
-  .wsec{padding-top:13px;border-top:1px solid #17241b;gap:6px}
-
-  .wrow{display:flex;align-items:center;gap:9px}
-
-  .wtag{font-size:8.5px;font-weight:800;letter-spacing:.1em;color:#7f9478;width:26px}
-
-  .waddr{font:600 11px ui-monospace,SFMono-Regular,monospace;color:#a9cf95;
-
+  /* The wallets, last, in mono — they are identifiers, not prose. */
+  .drawer .wsec{padding:10px 14px 14px;gap:6px;border-top:1px solid var(--line)}
+  .drawer .wrow{display:flex;align-items:center;gap:9px}
+  .drawer .wtag{font-size:8.5px;font-weight:600;letter-spacing:.08em;
+    color:var(--faint);width:28px;flex:0 0 auto}
+  .drawer .waddr{font-family:"ImpulseMono",ui-monospace,monospace;font-size:11px;
+    font-weight:500;color:var(--muted);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   .secbar.ok{color:#bff45f;border-color:rgba(163,230,53,.35);background:rgba(163,230,53,.07)}
@@ -809,33 +661,33 @@ const STYLES = `
 
   .secgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 14px 10px}
 
-  .seccell{display:flex;justify-content:space-between;gap:6px;background:#111d15;border:1px solid #1e2f24;border-radius:10px;padding:7px 10px;font-size:11px}
+  .seccell{display:flex;justify-content:space-between;gap:6px;background:#111d15;border:1px solid #1e2f24;border-radius:14px;padding:7px 10px;font-size:11px}
 
   .seccell span{color:#c8dcc0}
 
   .seccell b.ok{color:#59e08a}.seccell b.warn{color:#fbbf24}.seccell b.bad{color:#ff7a7a}.seccell b.na{color:#dfeeda}
 
-  .tabs2{display:flex;gap:5px;margin:0 14px 8px;background:#111d15;border:1px solid #1e2f24;border-radius:10px;padding:3px}
+  .tabs2{display:flex;gap:5px;margin:0 14px 8px;background:#111d15;border:1px solid #1e2f24;border-radius:14px;padding:3px}
 
-  .tabs2 button{flex:1;border:0;background:transparent;color:#dfeeda;font-weight:800;font-size:11.5px;padding:6px 0;border-radius:8px;cursor:pointer}
+  .tabs2 button{flex:1;border:0;background:transparent;color:#dfeeda;font-weight:800;font-size:11.5px;padding:6px 0;border-radius:12px;cursor:pointer}
 
   .tabs2 button.on{background:#a3e635;color:#0b140c}
 
   .chips{display:flex;gap:5px;margin:0 14px 9px}
 
-  .chip2{padding:4px 10px;border-radius:8px;background:#111d15;border:1px solid #1e2f24;color:#dfeeda;font-size:10.5px;font-weight:700;cursor:pointer}
+  .chip2{padding:4px 10px;border-radius:12px;background:#111d15;border:1px solid #1e2f24;color:#dfeeda;font-size:10.5px;font-weight:700;cursor:pointer}
 
   .chip2.on{background:rgba(163,230,53,.15);border-color:rgba(163,230,53,.5);color:#bff45f}
 
   .kolline{margin:0 14px 8px;padding:6px 10px;font-size:10.5px;color:#dfeeda;
 
-    background:#111d15;border:1px solid #1e2f24;border-radius:9px;display:flex;gap:10px;align-items:center}
+    background:#111d15;border:1px solid #1e2f24;border-radius:13px;display:flex;gap:10px;align-items:center}
 
   .kolline b{color:#fbbf24}
 
   .hrow{display:flex;align-items:center;gap:9px;margin:0 14px 6px;background:#111d15;border:1px solid #1e2f24;
 
-    border-radius:11px;padding:8px 10px;transition:border-color .12s,background .12s}
+    border-radius:15px;padding:8px 10px;transition:border-color .12s,background .12s}
 
   .hrow:hover{border-color:#31503a;background:#16241a}
 
@@ -857,13 +709,13 @@ const STYLES = `
 
   /* Concentration at a glance — a column of numbers hides who actually owns it. */
 
-  .hbar{margin-top:5px;height:3px;border-radius:2px;background:#0f1a12;overflow:hidden}
+  .hbar{margin-top:5px;height:3px;border-radius:5px;background:#0f1a12;overflow:hidden}
 
-  .hbar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#a3e635,#bff45f)}
+  .hbar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#a3e635,#bff45f)}
 
   .hrow.pool .hbar i{background:#31503a}
 
-  .htag{flex:0 0 auto;padding:1px 5px;border-radius:5px;border:1px solid #2a3f30;font-size:8px;font-weight:800;
+  .htag{flex:0 0 auto;padding:1px 5px;border-radius:9px;border:1px solid #2a3f30;font-size:8px;font-weight:800;
 
     text-transform:uppercase;letter-spacing:.04em;color:#dfeeda;background:#16241a}
 
@@ -887,19 +739,24 @@ const STYLES = `
 
   .gsrc{margin:2px 14px 10px;text-align:right;font-size:8.5px;color:#83a077}
 
-  .pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 14px 4px}
-
-  .pager button{border:1px solid #1e2f24;background:#111d15;color:#dfeeda;font-weight:700;font-size:11px;
-
-    padding:5px 12px;border-radius:8px;cursor:pointer;transition:.12s}
-
-  .pager button:hover:not(:disabled){border-color:#31503a;color:#ffffff}
-
+  /* Shared by every paginated view in the drawer. Missed in the earlier
+     passes and still wearing the old green, which is why Prev/Next looked
+     borrowed from a different app than the rows above them. The custom
+     properties inherit from .drawer, so this needs no extra scoping. */
+  .pager{display:flex;align-items:center;justify-content:center;gap:12px;
+    padding:10px 14px;border-bottom:1px solid var(--line)}
+  .pager button{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    font-family:"ImpulseSans",-apple-system,"Segoe UI",Arial,sans-serif;
+    font-weight:600;font-size:11px;padding:5px 10px;border-radius:8px;cursor:pointer;
+    transition:background .12s,color .12s,border-color .12s}
+  .pager button:hover:not(:disabled){background:var(--surface2);color:var(--text);border-color:#3a4756}
+  .pager span{font-size:10.5px;font-weight:500;color:var(--faint);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
   .pager button:disabled{opacity:.35;cursor:default}
 
   .pager span{font-size:10.5px;font-weight:700;color:#c8dcc0}
 
-  .bubblebox{margin:0 14px 4px;border-radius:12px;overflow:hidden;border:1px solid #1e2f24;background:#0d1712}
+  .bubblebox{margin:0 14px 4px;border-radius:16px;overflow:hidden;border:1px solid #1e2f24;background:#0d1712}
 
   .bubbleframe{display:block;width:100%;height:420px;border:0}
 
@@ -915,7 +772,7 @@ const STYLES = `
 
   .amts.pcts{grid-template-columns:repeat(3,1fr)}
 
-  .amt{padding:9px 0;border-radius:10px;background:#111d15;color:#dfeeda;border:1px solid #1e2f24;font-weight:700;
+  .amt{padding:9px 0;border-radius:14px;background:#111d15;color:#dfeeda;border:1px solid #1e2f24;font-weight:700;
 
     font-size:12.5px;cursor:pointer;transition:.12s}
 
@@ -925,7 +782,7 @@ const STYLES = `
 
   .cinrow{position:relative;margin-bottom:9px}
 
-  .cin{width:100%;padding:9px 42px 9px 11px;border-radius:10px;background:#111d15;border:1px solid #1e2f24;
+  .cin{width:100%;padding:9px 42px 9px 11px;border-radius:14px;background:#111d15;border:1px solid #1e2f24;
 
     color:#ffffff;font-weight:700;font-size:13px;font-family:inherit;outline:none;font-variant-numeric:tabular-nums}
 
@@ -935,7 +792,7 @@ const STYLES = `
 
   .cunit{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:800;color:#c8dcc0}
 
-  .go{width:100%;padding:13px;border:0;border-radius:13px;font-weight:800;font-size:14.5px;cursor:pointer;transition:.15s}
+  .go{width:100%;padding:13px;border:0;border-radius:17px;font-weight:800;font-size:14.5px;cursor:pointer;transition:.15s}
 
   .go.buy{background:linear-gradient(180deg,#b6f24a,#96d92e);color:#0b140c;box-shadow:0 10px 24px -10px rgba(163,230,53,.65)}
 
@@ -980,17 +837,28 @@ const STYLES = `
   .drawer{
     --bg:#0b0e11; --surface:#151a21; --surface2:#1b222b; --line:#28303c;
     --text:#ffffff; --muted:#c2cad6; --faint:#9aa5b4;
-    --up:#0ecb81; --down:#f6465d; --accent:#c6f24a;
-    position:fixed;top:0;right:0;height:100vh;width:440px;max-width:100vw;
+    --up:#8ce04a; --down:#f6465d; --accent:#b6f03c;
+    position:fixed;top:12px;right:12px;bottom:12px;width:440px;max-width:calc(100vw - 24px);
+    z-index:2147483001;
     display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
-    background:var(--bg);border-left:1px solid var(--line);color:var(--text);
-    box-shadow:-24px 0 60px -30px rgba(0,0,0,.9);
+    background:var(--bg);border:1px solid var(--line);border-radius:22px;color:var(--text);
+    box-shadow:0 30px 70px -24px rgba(0,0,0,.92);
     animation:slidein .18s cubic-bezier(.22,1,.36,1) both;
     scrollbar-width:thin;scrollbar-color:#2b3542 transparent}
   .drawer::-webkit-scrollbar{width:8px}
-  .drawer::-webkit-scrollbar-thumb{background:#2b3542;border-radius:4px}
+  .drawer::-webkit-scrollbar-thumb{background:#2b3542;border-radius:8px}
   @keyframes slidein{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
-  @media (max-width:520px){ .drawer{width:100vw;border-left:0} }
+  @media (max-width:520px){ .drawer{inset:8px;width:auto;max-width:none;border-radius:18px} }
+  /* Drag handle: a grabber bar pinned to the very top of the drawer. It's a CSS
+     pseudo-element so it survives the innerHTML re-renders and works in every
+     view. Grab it to fling the panel anywhere; double-click it to redock. */
+  .drawer::before{content:"";position:sticky;top:0;z-index:6;display:block;
+    height:20px;min-height:20px;flex:0 0 20px;cursor:grab;
+    background-color:var(--surface);border-bottom:1px solid var(--line);
+    background-image:linear-gradient(var(--faint),var(--faint));
+    background-size:38px 4px;background-position:center;background-repeat:no-repeat}
+  .drawer.dragging{user-select:none;cursor:grabbing}
+  .drawer.dragging::before{cursor:grabbing}
 
   /* Numbers are the typography here. Tabular figures so a ticking price does
      not shift the layout under the cursor. */
@@ -999,16 +867,16 @@ const STYLES = `
     font-variant-numeric:tabular-nums;font-family:"ImpulseMono",ui-monospace,monospace}
 
   /* ── header ─────────────────────────────────────────────────────────── */
-  .drawer .head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:11px;
+  .drawer .head{position:sticky;top:20px;z-index:3;display:flex;align-items:center;gap:11px;
     padding:14px 16px 12px;background:var(--bg);border-bottom:1px solid var(--line)}
-  .drawer .logo{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
+  .drawer .logo{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
   .drawer .sym{font-size:15px;font-weight:700;letter-spacing:.01em;color:var(--text)}
   .drawer .name{font-size:11.5px;color:var(--muted);font-weight:500}
   .drawer .badge,.drawer .chainchip{font-size:9px;font-weight:700;letter-spacing:.06em;
-    text-transform:uppercase;padding:2px 5px;border-radius:3px;background:var(--surface2);
+    text-transform:uppercase;padding:2px 5px;border-radius:6px;background:var(--surface2);
     color:var(--muted);border:1px solid var(--line)}
   .drawer .xclose{flex:0 0 auto;align-self:flex-start;margin-left:8px;width:24px;height:24px;
-    display:grid;place-items:center;border:1px solid var(--line);border-radius:4px;
+    display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;
     background:var(--surface);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;
     transition:.12s;padding:0}
   .drawer .xclose:hover{background:var(--surface2);color:var(--text);border-color:#3a4756}
@@ -1032,6 +900,16 @@ const STYLES = `
     text-transform:uppercase;color:var(--muted)}
   .drawer .stat b{font-size:14px;font-weight:600;color:var(--text)}
 
+  /* ── popularity strip: how hot this token is across all users ───────── */
+  .drawer .buzz{display:flex;align-items:center;gap:9px;padding:11px 16px;
+    border-bottom:1px solid var(--line);background:var(--bg);font-size:13.5px;color:var(--muted)}
+  .drawer .buzz img{width:18px;height:18px;border-radius:6px;flex:0 0 auto}
+  .drawer .buzzn b{font-size:15px;color:var(--text);font-weight:700;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .buzzd{color:var(--faint)}
+  .drawer .buzztag{margin-left:auto;font-size:9.5px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent);opacity:.9}
+
   /* ── tabs: text with an underline, not floating icon buttons ────────── */
   .drawer .seg{display:flex;align-items:stretch;gap:0;margin:0;padding:0 8px;
     border-bottom:1px solid var(--line);background:var(--bg);overflow-x:auto;
@@ -1050,13 +928,13 @@ const STYLES = `
   /* ── order entry ────────────────────────────────────────────────────── */
   .drawer .bar{padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:none}
   .drawer .amts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-  .drawer .amt{padding:9px 0;border-radius:4px;background:var(--surface);
+  .drawer .amt{padding:9px 0;border-radius:8px;background:var(--surface);
     border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;
     cursor:pointer;transition:.12s}
   .drawer .amt:hover{border-color:#33404f;color:var(--text)}
   .drawer .amt.on{background:var(--surface2);border-color:var(--accent);color:var(--text)}
   .drawer .cinrow{position:relative}
-  .drawer .cin{width:100%;padding:11px 46px 11px 12px;border-radius:4px;background:var(--surface);
+  .drawer .cin{width:100%;padding:11px 46px 11px 12px;border-radius:8px;background:var(--surface);
     border:1px solid var(--line);color:var(--text);font-size:14px;font-weight:600}
   .drawer .cin:focus{outline:0;border-color:#3a4756}
   .drawer .cunit{position:absolute;right:12px;top:50%;transform:translateY(-50%);
@@ -1066,15 +944,15 @@ const STYLES = `
      and what it costs you in impact. Both are already computed for the exit
      proof; not showing them was leaving the work on the floor. */
   .drawer .quote{display:flex;flex-direction:column;gap:6px;padding:10px 12px;
-    background:var(--surface);border:1px solid var(--line);border-radius:4px}
+    background:var(--surface);border:1px solid var(--line);border-radius:8px}
   .drawer .qrow{display:flex;align-items:baseline;justify-content:space-between;font-size:11.5px}
   .drawer .qlbl{color:var(--muted);font-weight:600}
   .drawer .qval{color:var(--text);font-weight:600}
   .drawer .qval.warn{color:#e0b252}
 
-  .drawer .go{width:100%;padding:13px;border:0;border-radius:4px;font-size:14px;
+  .drawer .go{width:100%;padding:13px;border:0;border-radius:8px;font-size:14px;
     font-weight:700;letter-spacing:.01em;cursor:pointer;transition:.12s}
-  .drawer .go.buy{background:var(--up);color:#03150d}
+  .drawer .go.buy{background:var(--accent);color:#0a1005}
   .drawer .go.buy:hover{filter:brightness(1.08)}
   .drawer .go.sell{background:var(--down);color:#1a0206}
   .drawer .go.sell:hover{filter:brightness(1.08)}
@@ -1089,8 +967,8 @@ const STYLES = `
     border-radius:0;font-size:11.5px;font-weight:600;background:none}
   .drawer .socials{margin:0;padding:9px 16px;border-bottom:1px solid var(--line)}
   .drawer .socials a{font-size:10.5px;color:var(--muted);border:1px solid var(--line);
-    background:var(--surface);border-radius:3px}
-  .drawer .note{margin:0 16px 12px;border-radius:4px;font-size:11.5px}
+    background:var(--surface);border-radius:6px}
+  .drawer .note{margin:0 16px 12px;border-radius:8px;font-size:11.5px}
   .drawer .ambig{margin:0;padding:9px 16px;border:0;border-bottom:1px solid var(--line);
     border-radius:0;font-size:10.5px}
 
@@ -1099,6 +977,82 @@ const STYLES = `
     background:var(--bg);border-top:1px solid var(--line);border-radius:0;
     font-size:11px;color:var(--muted)}
   .drawer .foot a{color:var(--accent);font-weight:600}
+
+  /* ── Impulse Thesis: the community feed, written by holders ──────────── */
+  /* Holder gate */
+  .drawer .igate{display:flex;align-items:center;gap:12px;margin:14px 16px;padding:14px 16px;
+    border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+  .drawer .igateico{flex:0 0 auto;color:var(--muted);display:grid;place-items:center}
+  .drawer .igateico svg{width:20px;height:20px}
+  .drawer .igatetxt{display:flex;flex-direction:column;gap:3px}
+  .drawer .igatetxt b{font-size:14px;font-weight:600;color:var(--text)}
+  .drawer .igatetxt span{font-size:12.5px;line-height:1.45;color:var(--muted)}
+
+  /* Setup + compose cards */
+  .drawer .isetup,.drawer .icompose{margin:14px 16px;padding:15px;border:1px solid var(--line);
+    border-radius:18px;background:var(--surface);display:flex;flex-direction:column;gap:13px}
+  .drawer .ihead{display:flex;flex-direction:column;gap:3px}
+  .drawer .ihtitle{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+  .drawer .ihsub{font-size:12px;color:var(--muted)}
+  .drawer .idprow{display:flex;align-items:center;gap:13px}
+  .drawer .idpprev{width:54px;height:54px;border-radius:50%;overflow:hidden;flex:0 0 auto;border:1px solid var(--line)}
+  .drawer .idpprev img{width:100%;height:100%;object-fit:cover;display:block}
+  .drawer .idpprev .tav{width:100%;height:100%}
+  .drawer .idpprev .tav svg,.drawer .idpprev .tav img{width:22px;height:22px}
+  .drawer .idpcol{display:flex;flex-direction:column;gap:5px}
+  .drawer .idpbtn{align-self:flex-start;font-size:12.5px;font-weight:600;color:var(--text);
+    background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:9px 15px;cursor:pointer;transition:.12s}
+  .drawer .idpbtn:hover{border-color:#3a4756}
+  .drawer .idphint{font-size:11px;color:var(--faint)}
+  .drawer .iuname{width:100%;padding:12px 14px;border-radius:12px;background:var(--bg);
+    border:1px solid var(--line);color:var(--text);font-size:14.5px;font-family:inherit;outline:none;transition:border-color .12s}
+  .drawer .iuname::placeholder{color:var(--faint)}
+  .drawer .iuname:focus{border-color:var(--accent)}
+  .drawer .go.ifull{width:100%;font-size:14px}
+
+  /* Compose identity row */
+  .drawer .iwho{display:flex;align-items:center;gap:11px}
+  .drawer .iwhoav .tav{width:36px;height:36px}
+  .drawer .iwhoname{font-size:14.5px;font-weight:600;color:var(--text)}
+  .drawer .ihold{margin-left:auto;font-size:12px;font-weight:600;color:var(--up);
+    font-family:"ImpulseMono",ui-monospace,monospace;background:rgba(140,224,74,.1);
+    border:1px solid rgba(140,224,74,.25);border-radius:999px;padding:4px 11px}
+  .drawer .idraft{width:100%;min-height:92px;resize:vertical;padding:13px 14px;border-radius:12px;
+    background:var(--bg);border:1px solid var(--line);color:var(--text);font-size:14.5px;
+    font-family:inherit;line-height:1.55;outline:none;transition:border-color .12s}
+  .drawer .idraft::placeholder{color:var(--faint)}
+  .drawer .idraft:focus{border-color:var(--accent)}
+  .drawer .icfoot{display:flex;align-items:center;gap:12px}
+  .drawer .ihint{flex:1;font-size:11.5px;color:var(--faint)}
+  .drawer .go.ipost{width:auto;padding:11px 22px;flex:0 0 auto;font-size:13.5px}
+  .drawer .imsg{font-size:12px}
+  .drawer .imsg.err{color:var(--down)}
+
+  /* Section label + feed */
+  .drawer .ilabel{display:flex;align-items:center;gap:9px;padding:8px 16px 12px;
+    font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .drawer .ilabel span{font-family:"ImpulseMono",ui-monospace,monospace;color:var(--faint);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 9px;letter-spacing:0}
+  .drawer .iempty{padding:38px 22px;text-align:center;font-size:13.5px;line-height:1.65;color:var(--muted)}
+  .drawer .ilist{display:flex;flex-direction:column}
+  .drawer .irow2{display:flex;gap:12px;padding:15px 16px;border-top:1px solid var(--line);transition:background .12s}
+  .drawer .irow2:hover{background:rgba(255,255,255,.02)}
+  .drawer .irow2.mine{background:rgba(182,240,60,.05)}
+  .drawer .iav{flex:0 0 auto;cursor:pointer}
+  .drawer .iav .tav{width:42px;height:42px;transition:transform .12s}
+  .drawer .iav:hover .tav{transform:scale(1.06)}
+  .drawer .ibody{min-width:0;flex:1}
+  .drawer .itop{display:flex;align-items:center;gap:8px}
+  .drawer .iname{font-size:14.5px;font-weight:600;color:var(--text);cursor:pointer;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s}
+  .drawer .iname:hover{color:var(--accent);text-decoration:underline}
+  .drawer .imine{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);border:1px solid rgba(182,240,60,.35);border-radius:6px;padding:1px 5px;flex:0 0 auto}
+  .drawer .iheld{font-size:11.5px;font-weight:600;color:var(--up);
+    font-family:"ImpulseMono",ui-monospace,monospace;flex:0 0 auto}
+  .drawer .iwhen{margin-left:auto;color:var(--faint);font-size:11px;flex:0 0 auto}
+  .drawer .itext{margin-top:6px;font-size:14.5px;line-height:1.6;color:var(--text);
+    white-space:pre-wrap;word-break:break-word}
 
   /* ── view tabs: present in every view, not only on the trade screen ─── */
   .drawer .vtabs{display:flex;gap:0;padding:0 6px;background:var(--bg);
@@ -1117,34 +1071,220 @@ const STYLES = `
   /* ── direction: the loudest control on the panel ─────────────────────── */
   .drawer .dirseg{display:grid;grid-template-columns:1fr 1fr;gap:6px;
     padding:14px 16px 0;background:none;border:0;margin:0}
-  .drawer .dirseg button{padding:11px 0;border-radius:4px;border:1px solid var(--line);
+  .drawer .dirseg button{padding:11px 0;border-radius:8px;border:1px solid var(--line);
     background:var(--surface);color:var(--muted);font-size:13.5px;font-weight:700;
     cursor:pointer;transition:.12s}
   .drawer .dirseg button:hover:not(:disabled){color:var(--text);border-color:#33404f}
-  .drawer .dirseg button.on-buy{background:var(--up);border-color:var(--up);color:#03150d}
+  .drawer .dirseg button.on-buy{background:var(--accent);border-color:var(--accent);color:#0a1005}
   .drawer .dirseg button.on-sell{background:var(--down);border-color:var(--down);color:#1a0206}
   .drawer .dirseg button:disabled{opacity:.35;cursor:not-allowed}
 
   /* A refusal is prose, so it gets a block rather than a value column. */
-  .drawer .qblock{margin-top:2px;padding:9px 10px;border-radius:4px;
+  .drawer .qblock{margin-top:2px;padding:9px 10px;border-radius:8px;
     background:rgba(246,70,93,.08);border:1px solid rgba(246,70,93,.25);
     font-size:11px;line-height:1.5;color:#f0a0aa;text-align:left}
   .drawer .qblock b{display:block;margin-bottom:3px;color:var(--down);
     font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+
+  /* ── holders ─────────────────────────────────────────────────────────── */
+  .drawer .hctl{display:flex;gap:8px;flex-wrap:wrap;padding:12px 14px;
+    border-bottom:1px solid var(--line);background:var(--bg)}
+  .drawer .hctl .tfseg button{min-width:0;padding:6px 11px}
+
+  /* Concentration is what this tab is for, and it used to be the one number
+     the view never computed — you had to add the column up yourself. */
+  .drawer .hsum{display:grid;grid-template-columns:repeat(3,1fr);
+    border-bottom:1px solid var(--line);background:var(--bg)}
+  .drawer .hsumcell{padding:11px 14px;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;gap:3px}
+  .drawer .hsumcell:last-child{border-right:0}
+  .drawer .hsumcell span{font-size:10px;font-weight:600;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted)}
+  .drawer .hsumcell b{font-size:15px;font-weight:600;color:var(--text);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .hsumcell b.hi{color:var(--down)}
+  .drawer .hsumcell b.mid{color:#e0b252}
+  .drawer .hsumcell b.lo{color:var(--up)}
+
+  .drawer .hhead{display:flex;align-items:center;gap:9px;padding:8px 14px;
+    border-bottom:1px solid var(--line);font-size:9.5px;font-weight:600;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .drawer .hhead span:nth-child(1){width:20px}
+  .drawer .hhead span:nth-child(2){flex:1}
+  .drawer .hhead span.r{width:62px;text-align:right}
+
+  .drawer .hrow{position:relative;display:flex;align-items:center;gap:9px;
+    padding:9px 14px;border-bottom:1px solid #1a212a;text-decoration:none;
+    overflow:hidden;transition:background .12s}
+  .drawer .hrow:hover{background:rgba(255,255,255,.05)}
+  .drawer .hrow:hover .hname{color:#8fc0ff;text-decoration:underline;
+    text-underline-offset:2px;text-decoration-color:rgba(143,192,255,.5)}
+  .drawer .hrow::after{content:"97";position:absolute;right:6px;top:50%;
+    transform:translateY(-50%);font-size:9px;color:var(--faint);opacity:0;transition:opacity .12s}
+  .drawer .hrow:hover::after{opacity:1}
+  .drawer .hrow.pool{opacity:.62}
+  /* Supply share as the row itself. A column of percentages hides
+     concentration; width does not. Scaled to the largest holder on screen. */
+  .drawer .hfill{position:absolute;left:0;top:0;bottom:0;
+    background:linear-gradient(90deg,rgba(182,240,60,.18),rgba(182,240,60,.04));
+    pointer-events:none}
+  .drawer .hrank{position:relative;width:20px;flex:0 0 auto;font-size:10.5px;
+    font-weight:600;color:var(--muted);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .hwho{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+  .drawer .hname{font-size:12.5px;font-weight:600;color:var(--text);min-width:64px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s}
+  .drawer .hsold{position:relative;flex:0 0 auto;font-size:10px;color:var(--muted);
+    white-space:nowrap}
+  .drawer .hpct,.drawer .hpnl{position:relative;width:62px;flex:0 0 auto;text-align:right;
+    font-size:12px;font-weight:600;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .hpct{color:var(--text)}
+  .drawer .hpnl.up{color:var(--up)} .drawer .hpnl.dn{color:var(--down)}
+  .drawer .hpnl.mut{color:var(--faint)}
+  .drawer .htag{position:relative;flex:0 0 auto;font-size:8.5px;font-weight:700;
+    letter-spacing:.06em;padding:2px 5px;border-radius:6px;border:1px solid var(--line);
+    background:var(--surface);color:var(--muted);text-transform:uppercase}
+  .drawer .htag.kol{color:#e0b252;border-color:rgba(224,178,82,.35)}
+  .drawer .htag.smart{color:var(--up);border-color:rgba(14,203,129,.35)}
+
+  /* ── trader theses ───────────────────────────────────────────────────
+     A thesis is worth reading in proportion to the money standing behind it,
+     so the position leads the card and sets the row's fill width — the same
+     device the holders table uses, so both tabs are read the same way. The old
+     cards were a green-tinted social feed with the sentence on top and the
+     position tucked underneath in small text; that ordering makes talk look
+     like the product. */
+  .drawer .tclabel{display:flex;align-items:center;gap:7px;padding:8px 14px;
+    border-bottom:1px solid var(--line);font-size:9.5px;font-weight:600;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .drawer .tclabel img{opacity:.9;border-radius:6px}
+  .drawer .tclabel .r{margin-left:auto;letter-spacing:.04em;color:var(--faint);font-weight:500}
+  .drawer .tclabel:has(.tfseg){padding:9px 14px}
+
+  .drawer .tcard{position:relative;padding:11px 14px 10px;
+    border-bottom:1px solid #1a212a;overflow:hidden;transition:background .12s}
+  .drawer .tcard:hover{background:rgba(255,255,255,.03)}
+  .drawer .tcard .hfill{background:linear-gradient(90deg,rgba(182,240,60,.15),rgba(182,240,60,.02))}
+
+  .drawer .tctop{position:relative;display:flex;align-items:center;gap:8px}
+  .drawer .tcrank{width:18px;flex:0 0 auto;font-size:10.5px;font-weight:600;color:var(--faint);
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .tctop .tav{width:22px;height:22px;border-radius:50%;flex:0 0 auto;
+    display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+  .drawer .tcname{font-size:12.5px;font-weight:600;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+  .drawer .tcfollow{flex:0 0 auto;margin-left:8px;padding:3px 10px;border-radius:999px;
+    background:var(--accent);color:var(--accent-ink,#0a1005);border:0;cursor:pointer;
+    font-family:inherit;font-size:10.5px;font-weight:700;letter-spacing:.01em;transition:filter .12s,transform .12s}
+  .drawer .tcfollow:hover{filter:brightness(1.07)}
+  .drawer .tcfollow:active{transform:scale(.96)}
+  .drawer .tcwhen{margin-left:auto;flex:0 0 auto;font-size:10px;color:var(--faint);
+    white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* The figures line, at reading size. */
+  .drawer .tcnum{position:relative;display:flex;align-items:baseline;gap:8px;
+    margin:7px 0 0;padding-left:26px;flex-wrap:wrap}
+  .drawer .tckind{font-size:9.5px;font-weight:600;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted)}
+  .drawer .tcpos{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.01em;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .tcpos.mut{color:var(--faint);font-size:12px;font-weight:500;letter-spacing:0}
+  .drawer .tcpct{font-size:12px;font-weight:600;padding:1px 5px;border-radius:6px;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .tcpct.up{color:var(--up);background:rgba(14,203,129,.1)}
+  .drawer .tcpct.dn{color:var(--down);background:rgba(246,70,93,.1)}
+  .drawer .tctook{font-size:10.5px;color:var(--muted);white-space:nowrap;
+    font-family:"ImpulseMono",ui-monospace,monospace}
+
+  .drawer .tctext{position:relative;margin:7px 0 0;padding-left:26px;
+    font-size:12.5px;line-height:1.5;color:#e8edf4;white-space:pre-wrap;
+    overflow-wrap:anywhere}
+  .drawer .tctext a{color:#8fc0ff;text-decoration:none}
+  .drawer .tctext a:hover{text-decoration:underline;text-underline-offset:2px}
+  .drawer .tcfoot{position:relative;margin:8px 0 0;padding-left:26px;
+    display:flex;align-items:center;gap:13px}
+  .drawer .tcfoot .tstat{display:inline-flex;align-items:center;gap:4px;
+    font-size:10.5px;font-weight:500;color:var(--faint);font-variant-numeric:tabular-nums}
+  .drawer .tcfoot .tstat svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2}
+
+  /* Callouts share the card, but the figure that leads it is an outcome, not a
+     size — so the multiple carries the colour and the fill runs green or red
+     instead of the blue used for holdings. A call is judged on where it went;
+     a thesis is weighted by what is behind it. */
+  .drawer .tcpos.up{color:var(--up)} .drawer .tcpos.dn{color:var(--down)}
+  .drawer .tcard.up .hfill{background:linear-gradient(90deg,rgba(14,203,129,.15),rgba(14,203,129,.02))}
+  .drawer .tcard.dn .hfill{background:linear-gradient(90deg,rgba(246,70,93,.14),rgba(246,70,93,.02))}
+  .drawer .tcat{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .drawer .tcver{flex:0 0 auto;width:13px;height:13px;border-radius:50%;display:grid;
+    place-items:center;background:rgba(14,203,129,.14);color:var(--up);
+    font-size:8px;font-weight:700;line-height:1}
+  .drawer .tcx{flex:0 0 auto;font-size:10.5px;font-weight:500;color:#8fc0ff;
+    text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+  .drawer .tcx:hover{text-decoration:underline;text-underline-offset:2px}
+
+  /* ── the last of the old palette ─────────────────────────────────────
+     These render inside the drawer but were never scoped to it, so they kept
+     the green card look through every redesign: the security grid and the
+     source lines on the main trade tab, the stock banner, the bubble map, and
+     the whole Impulse Thesis panel. Same tokens as everything else now. */
+
+  .drawer .secgrid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0;
+    border-bottom:1px solid var(--line)}
+  .drawer .seccell{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    background:none;border:0;border-right:1px solid var(--line);border-top:1px solid #1a212a;
+    border-radius:0;padding:9px 14px;font-size:11.5px;color:var(--muted)}
+  .drawer .secgrid .seccell:nth-child(2n){border-right:0}
+  .drawer .secgrid .seccell:nth-child(-n+2){border-top:0}
+  .drawer .seccell b{color:var(--text);font-weight:600;
+    font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+  .drawer .gsrc{margin:0;padding:8px 14px 10px;text-align:right;font-size:10px;
+    color:var(--faint);letter-spacing:.02em}
+
+  .drawer .stockline{margin:0;padding:9px 14px;background:var(--surface);
+    border:0;border-bottom:1px solid var(--line);border-radius:0;
+    font-size:11.5px;color:var(--muted)}
+  .drawer .stockline b{color:var(--text);font-weight:600}
+
+  .drawer .bubblebox{margin:0;border-radius:0;border:0;
+    border-bottom:1px solid var(--line);background:var(--bg)}
+  .drawer .bubbleframe{height:460px}
+
+  .drawer .ambigi{background:#e0b252;color:#12160b;font-weight:700}
+
+  /* Coming-soon panel. Centred and quiet — it is a promise, not a feature, and
+     should not compete with the tabs that actually do something. */
+  .drawer .soon{padding:34px 22px 30px;gap:0}
+  .drawer .soonlogo{width:46px;height:46px;border-radius:12px;background:var(--surface);
+    border:1px solid var(--line);margin-bottom:14px}
+  .drawer .soonttl{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+  .drawer .soonpill{margin-top:8px;font-size:9px;font-weight:600;letter-spacing:.08em;
+    padding:3px 8px;border-radius:6px;background:var(--surface2);
+    border:1px solid var(--line);color:var(--muted)}
+  .drawer .soontxt{margin:14px 0 0;font-size:12px;line-height:1.6;color:var(--muted);max-width:36ch}
+  .drawer .soonrow{margin-top:16px;gap:5px}
+  .drawer .soonchip{font-size:9.5px;font-weight:500;padding:3px 7px;border-radius:6px;
+    background:var(--surface);border:1px solid var(--line);color:var(--muted)}
 
   /* ── the chart, inline in the order ticket ───────────────────────────── */
   .drawer .chartbox{margin:0;padding:10px 8px 4px;background:var(--bg);
     border-bottom:1px solid var(--line);border-radius:0;border-left:0;border-right:0;border-top:0}
   .drawer .tfrow{display:flex;margin:0;padding:2px 14px 12px;
     border-bottom:1px solid var(--line);background:var(--bg)}
-  .drawer .tfseg{display:inline-flex;gap:2px;padding:2px;border-radius:6px;
+  .drawer .tfseg{display:inline-flex;gap:2px;padding:2px;border-radius:10px;
     background:#0f141a;border:1px solid var(--line)}
-  .drawer .tfrow button{min-width:42px;padding:6px 10px;border:0;border-radius:4px;
+  /* Scoped to the track, not to one row that happens to contain one. The
+     holders control uses the same track inside .hctl, and scoping these to
+     .tfrow meant those buttons matched no rule at all and rendered as plain
+     browser buttons — white boxes in a black panel. */
+  .drawer .tfseg button{min-width:42px;padding:6px 10px;border:0;border-radius:8px;
     background:none;color:var(--muted);cursor:pointer;transition:background .12s,color .12s;
     font:600 11px/1 "ImpulseMono",ui-monospace,monospace;letter-spacing:.02em;
-    font-variant-numeric:tabular-nums}
-  .drawer .tfrow button:hover{color:var(--text);background:rgba(255,255,255,.05)}
-  .drawer .tfrow button.on{background:var(--surface2);color:var(--text);
+    font-variant-numeric:tabular-nums;white-space:nowrap;text-transform:none}
+  .drawer .tfseg button:hover{color:var(--text);background:rgba(255,255,255,.05)}
+  .drawer .tfseg button.on{background:var(--surface2);color:var(--text);
     box-shadow:0 1px 2px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.05)}
   .drawer .chartwait{display:flex;align-items:center;justify-content:center;height:168px;
     color:var(--faint);font-size:11px;gap:8px}
@@ -1217,7 +1357,7 @@ function chartSvg(cs: Candle[], tf: string, height = 250): string {
   const step = pw / Math.max(1, n - 1);
   const x = (i: number) => L + i * step;
 
-  const LINE = "#4d9fff", AXIS = "#b3bdcc", GRID = "#2a3442";
+  const LINE = "#b6f03c", AXIS = "#b3bdcc", GRID = "#2a3442";
   const MONO = "ImpulseMono,ui-monospace,SFMono-Regular,Menlo,monospace";
   let out = `<defs><linearGradient id="ig" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="${LINE}" stop-opacity="0.26"/>
@@ -1273,7 +1413,94 @@ function chartSvg(cs: Candle[], tf: string, height = 250): string {
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true">${out}</svg>`;
 }
 
+/** Remembered drawer geometry for this page session, so the panel stays where
+ *  the user flung it when they open a different token. Cleared on redock. */
+let dragPos: { left: number; top: number; w: number; h: number } | null = null;
+
+/**
+ * Make a drawer draggable by the grip bar at its top.
+ *
+ * The listeners live on the .drawer element itself, not its children, so they
+ * survive the innerHTML re-renders each view does. The top 20px is the grip
+ * (the ::before bar); a pointerdown there frees the panel from its docked edge
+ * and moves it with the cursor, clamped to keep a corner on screen. Double-click
+ * the grip to snap back to the right edge.
+ */
+function makeDrawerDraggable(drawer: HTMLElement) {
+  const BAR = 20;
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  let drag: { dx: number; dy: number; w: number; h: number } | null = null;
+
+  const onGrip = (e: MouseEvent) => e.clientY - drawer.getBoundingClientRect().top <= BAR;
+
+  // Re-apply a remembered position, clamped to the current viewport.
+  if (dragPos) {
+    const w = Math.min(dragPos.w, window.innerWidth - 16);
+    const h = Math.min(dragPos.h, window.innerHeight - 16);
+    drawer.style.right = "auto"; drawer.style.bottom = "auto";
+    drawer.style.width = `${w}px`; drawer.style.height = `${h}px`;
+    drawer.style.left = `${clamp(dragPos.left, 64 - w, window.innerWidth - 64)}px`;
+    drawer.style.top = `${clamp(dragPos.top, 8, window.innerHeight - 40)}px`;
+  }
+
+  drawer.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !onGrip(e)) return;
+    const r = drawer.getBoundingClientRect();
+    // Freeze current geometry, then switch from edge-docking to free x/y.
+    drawer.style.top = `${r.top}px`; drawer.style.left = `${r.left}px`;
+    drawer.style.right = "auto"; drawer.style.bottom = "auto";
+    drawer.style.width = `${r.width}px`; drawer.style.height = `${r.height}px`;
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height };
+    drawer.classList.add("dragging");
+    try { drawer.setPointerCapture(e.pointerId); } catch { /* older engines */ }
+    e.preventDefault();
+  });
+
+  drawer.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const left = clamp(e.clientX - drag.dx, 64 - drag.w, window.innerWidth - 64);
+    const top = clamp(e.clientY - drag.dy, 8, window.innerHeight - 40);
+    drawer.style.left = `${left}px`; drawer.style.top = `${top}px`;
+  });
+
+  const end = (e: PointerEvent) => {
+    if (!drag) return;
+    const r = drawer.getBoundingClientRect();
+    dragPos = { left: r.left, top: r.top, w: r.width, h: r.height };
+    drag = null;
+    drawer.classList.remove("dragging");
+    try { drawer.releasePointerCapture(e.pointerId); } catch { /* no-op */ }
+  };
+  drawer.addEventListener("pointerup", end);
+  drawer.addEventListener("pointercancel", end);
+
+  drawer.addEventListener("dblclick", (e) => {
+    if (!onGrip(e)) return;
+    for (const p of ["top", "left", "right", "bottom", "width", "height"]) drawer.style.removeProperty(p);
+    dragPos = null;
+  });
+}
+
+/* ── popularity ─────────────────────────────────────────────────────────────
+   How often a token is seen (its pill appears) and opened (its panel opens),
+   counted across all users so the overlay can show how hot it is. Deduped per
+   page session per token per kind, so one browser adds at most +1 of each and
+   the number reads like reach, not one person refreshing. */
+const trackedSeen = new Set<string>();
+const trackedOpen = new Set<string>();
+function trackImpulse(ca: string, kind: "seen" | "open") {
+  const k = (ca || "").toLowerCase();
+  if (!k) return;
+  const set = kind === "open" ? trackedOpen : trackedSeen;
+  if (set.has(k)) return;
+  set.add(k);
+  try {
+    chrome.runtime.sendMessage({ type: "STRIX_ITRACK", ca, kind }, () => void chrome.runtime.lastError);
+  } catch { /* worker asleep / context gone — a popularity tick is not worth a retry */ }
+}
+
 function openDrawer(ca: string, viaCashtag: boolean, chainHint: string | null) {
+  trackImpulse(ca, "open");
   // Clicking the same token again closes it; a different token swaps content.
   if (drawerRoot && drawerCa === ca) { closeDrawer(); return; }
   closeDrawer();
@@ -1294,6 +1521,7 @@ function openDrawer(ca: string, viaCashtag: boolean, chainHint: string | null) {
   drawer.className = "drawer";
   sh.appendChild(drawer);
   document.body.appendChild(host);
+  makeDrawerDraggable(drawer);
 
   drawerRoot = host;
   drawerCa = ca;
@@ -1313,6 +1541,7 @@ function closeDrawer() {
 }
 
 function mountHost(ca: string, afterEl: Element, pillLabel = "Trade on Impulse", viaCashtag = false, chainHint: string | null = null) {
+  trackImpulse(ca, "seen");
   const host = document.createElement("div");
   host.setAttribute(HOST_ATTR, "");
   host.style.cssText = "all:initial;display:block;"; // CSSOM set = CSP-safe
@@ -1442,6 +1671,19 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
   let coBusy = false;
   let coErr = "";
   let coPage = 0;
+  // Impulse Thesis (our own backend). undefined = not fetched, null = unavailable.
+  let impData: any = undefined;      // { items, count }
+  let impBusy = false;
+  let impErr = "";
+  let impProfile: any = undefined;   // undefined = unknown, null = none yet, obj = set
+  let impWallet: string | null = null;
+  let impSetup = false;              // show the profile setup form even if one exists
+  let impDp: string | null = null;   // chosen display picture, as a data: URI
+  let impDraft = "";                 // thesis text being written (kept across renders)
+  let impUsername = "";              // username being chosen
+  let impSaving = false;
+  let impMsg = "";                   // inline error/status under the composer
+  let impStats: { seen: number; opened: number } | null = null; // popularity from our backend
   let holdTab: "holders" | "traders" = "holders";
   let holdTag = ""; // "" | "renowned" | "smart_degen"
   let holdPage = 0;
@@ -1504,6 +1746,29 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       else if (r?.error) { fomoData = null; fomoErr = String(r.error); }
       else fomoData = r;
       if (view === "fomo") render();
+    });
+  }
+
+  function ensureImpulse(force = false) {
+    if (force) { impData = undefined; impErr = ""; }
+    // Who am I — loaded once so the composer knows whether to show setup.
+    if (impProfile === undefined) {
+      send({ type: "STRIX_ITHESIS_PROFILE" }).then((r: any) => {
+        impWallet = r?.wallet || null;
+        impProfile = r?.profile ?? null;
+        if (view === "ithesis") render();
+      }).catch(() => { impProfile = null; if (view === "ithesis") render(); });
+    }
+    if (impData !== undefined || impBusy) return;
+    impBusy = true;
+    send({ type: "STRIX_ITHESIS_LIST", ca, chain: chain || chainHint || null }).then((r: any) => {
+      impBusy = false;
+      if (r?.error) { impData = null; impErr = String(r.error); }
+      else impData = r?.v || { items: [], count: 0 };
+      if (view === "ithesis") render();
+    }).catch((e: any) => {
+      impBusy = false; impData = null; impErr = String(e?.message || e);
+      if (view === "ithesis") render();
     });
   }
 
@@ -1606,6 +1871,7 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       ${vt("back", "Trade", TRADEI, view === "trade", "Order ticket")}
       ${gmgnKey && (!chain || chain === "robinhood") ? vt("holders", "Holders", PEOPLE, view === "holders", "Top holders & traders") : ""}
       ${vt("bubbles", "Map", BUBBLES, view === "bubbles", "Holder bubble map")}
+      ${vt("ithesis", "Impulse", LOGO, view === "ithesis", "Impulse community theses — written by holders")}
       ${FOMO_ENABLED ? vt("fomo", "Thesis", FOMO_MARK_SM, view === "fomo", "Trader theses from FOMO") : ""}
       ${CALLOUTS_ENABLED ? vt("callouts", "Callouts", PUMP_MARK_SM, view === "callouts", "Callouts from pump.fun") : ""}
     </div>`;
@@ -1692,6 +1958,16 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
            <span>Multiple tokens can use this cashtag — <a data-act="dexs">verify the contract ↗</a></span>
          </div>`
       : "";
+    // Popularity strip: how many times this token has been seen and opened in
+    // the overlay by everyone, so a reader can gauge how hot it is.
+    const fmtCount = (n: number) => {
+      n = Number(n) || 0;
+      return n < 1000 ? String(n) : new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(n);
+    };
+    const buzzHtml = impStats && (impStats.opened || impStats.seen)
+      ? `<div class="buzz" title="How many times this token was opened and seen in the Impulse overlay">${LOGO}<span class="buzzn"><b>${fmtCount(impStats.opened)}</b> opens</span><span class="buzzd">·</span><span class="buzzn"><b>${fmtCount(impStats.seen)}</b> seen</span><span class="buzztag">on Impulse</span></div>`
+      : "";
+
     const headHtml = `
       <div class="head">${logo}
         <div class="hd">
@@ -1713,7 +1989,7 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
         </div>
         <div class="price"><div class="pval"><span class="live"></span>${fmtUsd(info?.priceUsd)}</div>${chgHtml}</div>
         <button class="xclose" data-act="close" title="Close (Esc)" aria-label="Close">&#10005;</button>
-      </div>${ambigHtml}${statsHtml}${vtabs}`;
+      </div>${ambigHtml}${statsHtml}${buzzHtml}${vtabs}`;
     const footHtml = `<div class="foot"><span>${status?.unlocked ? `${esc(status.label || "Wallet")} · ${Number(status.eth).toFixed(4)} ${esc(status.symbol || "ETH")}` : "Impulse · locked"}</span><a data-act="open">Open wallet ↗</a></div>`;
 
     if (view === "chart") {
@@ -1776,10 +2052,20 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
         // Concentration is the number people actually come to this tab for, and
         // it was the one thing the old view never computed — you had to add up
         // a column of percentages yourself.
-        const top10 = rows.slice(0, 10).reduce((n: number, r: any) => n + (gIsPool(r) ? 0 : pctOf(r)), 0);
-        const conc = top10 >= 50 ? "hi" : top10 >= 25 ? "mid" : "lo";
+        //
+        // GMGN often returns no supply share at all for a wallet, and summing
+        // those to "0.0%" reads as "the top ten hold nothing", which is a
+        // stronger claim than the data supports and the opposite of the truth.
+        // Missing is shown as missing.
+        const top = rows.slice(0, 10).filter((r: any) => !gIsPool(r));
+        const known = top.filter((r: any) => pctOf(r) > 0);
+        const top10 = known.reduce((n: number, r: any) => n + pctOf(r), 0);
+        const haveEnough = known.length >= Math.max(1, Math.ceil(top.length / 2));
+        const conc = !haveEnough ? "" : top10 >= 50 ? "hi" : top10 >= 25 ? "mid" : "lo";
         const summary = `<div class="hsum">
-          <div class="hsumcell"><span>Top 10 hold</span><b class="${conc}">${top10.toFixed(1)}%</b></div>
+          <div class="hsumcell"><span>Top 10 hold</span><b class="${conc}" ${
+            haveEnough ? "" : `title="GMGN did not report a supply share for ${top.length - known.length} of these wallets"`
+          }>${haveEnough ? `${top10.toFixed(1)}%` : "—"}</b></div>
           <div class="hsumcell"><span>KOLs</span><b>${kols}</b></div>
           <div class="hsumcell"><span>Smart money</span><b>${smart}</b></div>
         </div>`;
@@ -1803,28 +2089,86 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       }
       content.innerHTML = `${headHtml}${tabs}${body}${footHtml}`;
     } else if (view === "ithesis") {
-      // Not shipped. Stated as such rather than hidden: the other two tabs read
-      // other people's platforms, and it should be obvious this one will be
-      // ours — but never that it already is.
-      content.innerHTML = `${headHtml}
-        <div class="soon">
-          <div class="soonlogo">${LOGO_LG}</div>
-          <div class="soonttl">Impulse Thesis</div>
-          <div class="soonpill">Coming soon</div>
-          <p class="soontxt">Write why you bought, attached to the token, visible to anyone
-            looking at it. Ranked by three things: the size of the position behind the words,
-            the reach of the person writing them, and whether the call was right.</p>
-          <div class="soonrow">
-            <span class="soonchip">Your own thesis</span>
-            <span class="soonchip">Caller track records</span>
-            <span class="soonchip">Every chain</span>
+      // Impulse Thesis — the community's own feed, written by holders of THIS
+      // token. Whoever holds ≥1 can post; everyone can read. The header is the
+      // composer (setup on first use, else the write box), the list is below.
+      const sym = esc(info?.symbol || "");
+      const holds = h > 0;
+      const fmtAgo = (ms: number) => {
+        const d = Date.now() - ms;
+        return d < 60_000 ? "now" : d < 3_600_000 ? Math.floor(d / 60_000) + "m"
+          : d < 86_400_000 ? Math.floor(d / 3_600_000) + "h" : Math.floor(d / 86_400_000) + "d";
+      };
+
+      let composer: string;
+      if (impProfile === undefined) {
+        composer = `<div class="ipanel"><div class="note"><span class="spin"></span>Loading…</div></div>`;
+      } else if (!holds) {
+        composer = `<div class="igate">
+          <span class="igateico">${SHIELD}</span>
+          <div class="igatetxt"><b>Holders write the thesis</b><span>Hold at least 1 ${sym || "token"} to share why you're in.</span></div>
+        </div>`;
+      } else if (impSetup || impProfile === null) {
+        composer = `<div class="isetup">
+          <div class="ihead"><span class="ihtitle">Set up your profile</span><span class="ihsub">How you'll appear on every thesis</span></div>
+          <div class="idprow">
+            <span class="idpprev">${impDp ? `<img src="${impDp}" alt=""/>` : (impWallet ? authorAvatar(impWallet, null, LOGO) : "")}</span>
+            <div class="idpcol">
+              <label class="idpbtn">Upload photo<input type="file" accept="image/png,image/jpeg,image/webp" data-idp style="display:none"/></label>
+              <span class="idphint">Optional · a square image looks best</span>
+            </div>
           </div>
-        </div>
-        <div class="bar" style="margin-top:10px"><button class="go locked" data-act="back">← Back to trading</button></div>${footHtml}`;
+          <input class="iuname" data-iuname placeholder="Choose a username" maxlength="24" autocomplete="off" spellcheck="false" value="${esc(impUsername)}"/>
+          <button class="go buy ifull" data-act="isaveprofile" ${impSaving ? "disabled" : ""}>${impSaving ? `<span class="spin"></span>Saving…` : "Save & continue"}</button>
+          ${impMsg ? `<div class="imsg err">${esc(impMsg)}</div>` : ""}
+        </div>`;
+      } else {
+        composer = `<div class="icompose">
+          <div class="iwho">
+            <span class="iwhoav">${authorAvatar(impProfile.wallet, impProfile.dp, LOGO)}</span>
+            <span class="iwhoname">${esc(impProfile.username)}</span>
+            <span class="ihold">${fmtNum(h)} ${sym}</span>
+          </div>
+          <textarea class="idraft" data-idraft maxlength="600" placeholder="Why are you holding ${sym || "this"}? Share your thesis…">${esc(impDraft)}</textarea>
+          <div class="icfoot">
+            <span class="ihint">Public to everyone viewing ${sym || "this token"}</span>
+            <button class="go buy ipost" data-act="ipost" ${impSaving ? "disabled" : ""}>${impSaving ? `<span class="spin"></span>` : "Post thesis"}</button>
+          </div>
+          ${impMsg ? `<div class="imsg err">${esc(impMsg)}</div>` : ""}
+        </div>`;
+      }
+
+      const items: any[] = impData?.items || [];
+      let list: string;
+      if (impBusy || impData === undefined) {
+        list = `<div class="note"><span class="spin"></span>Loading theses…</div>`;
+      } else if (!items.length) {
+        list = `<div class="iempty">${impErr ? `Couldn't load: ${esc(impErr)}` : `No theses on ${sym || "this token"} yet.${holds ? "<br/>Be the first to write one." : ""}`}</div>`;
+      } else {
+        const label = `<div class="ilabel">Community theses<span>${items.length}</span></div>`;
+        list = label + `<div class="ilist">` + items.map((it: any) => {
+          const held = Number(it.holdingAmount) || 0;
+          const w = esc(it.author?.wallet || "");
+          return `<div class="irow2${it.mine ? " mine" : ""}">
+            <div class="iav" data-iauthor="${w}" title="View wallet on explorer">${authorAvatar(it.author?.wallet || it.id, it.author?.dp, LOGO)}</div>
+            <div class="ibody">
+              <div class="itop">
+                <span class="iname" data-iauthor="${w}" title="View wallet on explorer">${esc(it.author?.username || "anon")}</span>
+                ${it.mine ? `<span class="imine">you</span>` : ""}
+                <span class="iheld">${fmtNum(held)} ${sym}</span>
+                <span class="iwhen">${fmtAgo(it.createdAt)}</span>
+              </div>
+              <div class="itext">${esc(it.text)}</div>
+            </div>
+          </div>`;
+        }).join("") + `</div>`;
+      }
+
+      content.innerHTML = `${headHtml}${composer}${list}${footHtml}`;
     } else if (view === "callouts") {
       const fmtAgo = (ms: number) => {
         const d = Date.now() - ms;
-        if (d < 60_000) return "just now";
+        if (d < 60_000) return "now";
         if (d < 3_600_000) return Math.floor(d / 60_000) + "m ago";
         if (d < 86_400_000) return Math.floor(d / 3_600_000) + "h ago";
         return Math.floor(d / 86_400_000) + "d ago";
@@ -1842,39 +2186,56 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
         const maxPage = Math.max(1, Math.ceil(all.length / PAGE));
         if (coPage >= maxPage) coPage = maxPage - 1;
         const start = coPage * PAGE;
-        const best = all[0]?.multiple;
-        const head = `<div class="fhead">${PUMP_MARK}<span class="fttl">Callouts</span>` +
-          `<span class="fsub">${all.length}${best ? ` · best ${Number(best).toFixed(1)}x` : ""}</span></div>`;
+
+        const multOf = (c: any) => { const n = Number(c.multiple); return isFinite(n) && n > 0 ? n : 0; };
+        const best = all.reduce((m: number, c: any) => Math.max(m, multOf(c)), 0);
+        // Twenty callouts from one account is a different signal from twenty
+        // accounts, and the count alone cannot tell them apart.
+        const callers = new Set(all.map((c: any) => String(c.handle || c.id || "")).filter(Boolean)).size;
+        // The earliest call is the one worth knowing about: it says what cap
+        // this was being talked about at before the chart existed.
+        const caps = all.map((c: any) => Number(c.calledAtMcap)).filter((n: number) => isFinite(n) && n > 0);
+        const firstAt = caps.length ? Math.min(...caps) : 0;
+
+        const summary = `<div class="hsum">
+          <div class="hsumcell"><span>Callouts</span><b>${all.length}</b></div>
+          <div class="hsumcell"><span>Best</span><b class="${best >= 1.05 ? "lo" : ""}">${
+            best > 0 ? `${best.toFixed(best >= 10 ? 0 : 1)}x` : "—"}</b></div>
+          <div class="hsumcell"><span>Callers</span><b>${callers || "—"}</b></div>
+        </div>`;
+        const label = `<div class="tclabel">${PUMP_MARK}<span>Callouts</span>` +
+          `<span class="r">${firstAt > 0 ? `earliest at ${fmtCompact(firstAt)} cap` : ""}</span></div>`;
 
         const rows = all.slice(start, start + PAGE).map((c: any, i: number) => {
           const rank = start + i + 1;
-          const mult = c.multiple;
+          const mult = multOf(c);
           // 1x is break-even, not zero — a call that went nowhere should read
           // neutral rather than green.
-          const cls = mult == null ? "" : mult >= 1.05 ? "up" : mult <= 0.95 ? "dn" : "";
-          const multi = mult == null ? ""
-            : `<span class="theld">${Number(mult).toFixed(mult >= 10 ? 0 : 1)}x</span>`;
+          const cls = mult === 0 ? "" : mult >= 1.05 ? "up" : mult <= 0.95 ? "dn" : "";
+          const w = best > 0 && mult > 0 ? Math.max(1.5, Math.min(100, (mult / best) * 100)) : 0;
+          const figure = mult > 0
+            ? `<span class="tcpos ${cls}">${mult.toFixed(mult >= 10 ? 0 : 1)}x</span>` +
+              `<span class="tckind">since call</span>`
+            : `<span class="tcpos mut">no result yet</span>`;
           const at = c.calledAtMcap
-            ? `<span class="tkind">called at</span><span class="tcap ${cls}">${fmtCompact(c.calledAtMcap)}</span>`
-            : "";
+            ? `<span class="tcat">called at ${fmtCompact(c.calledAtMcap)}</span>` : "";
           const av = authorAvatar(c.handle || c.id, c.avatar, PUMP_MARK_SM);
           const x = c.xHandle
-            ? `<a class="tx" href="https://x.com/${encodeURIComponent(c.xHandle)}" target="_blank" rel="noopener noreferrer">@${esc(c.xHandle)}</a>`
+            ? `<a class="tcx" href="https://x.com/${encodeURIComponent(c.xHandle)}" target="_blank" rel="noopener noreferrer">@${esc(c.xHandle)}</a>`
             : "";
-          const peak = c.peakAt ? `<span class="tstat">peaked ${fmtAgo(Number(c.peakAt))}</span>` : "";
-          return `<div class="thesis"><div class="trow">
-            <div class="tavwrap">${av}<span class="trank">${rank}</span></div>
-            <div class="tbody">
-              <div class="thead">
-                <span class="tname">${esc(c.handle || "unknown")}</span>
-                ${c.verified ? `<span class="tver" title="Verified on pump.fun">✓</span>` : ""}
-                ${x}
-                <span class="twhen">${c.createdAt ? fmtAgo(Number(c.createdAt)) : ""}</span>
-              </div>
-              <div class="tpos">${multi}${at}</div>
-              ${c.text ? `<div class="ttext">${linkify(c.text)}</div>` : ""}
-              <div class="tfoot">${peak}</div>
-            </div></div></div>`;
+          return `<div class="tcard ${cls}">
+            <span class="hfill" style="width:${w.toFixed(1)}%"></span>
+            <div class="tctop">
+              <span class="tcrank">${rank}</span>${av}
+              <span class="tcname">${esc(c.handle || "unknown")}</span>
+              ${c.verified ? `<span class="tcver" title="Verified on pump.fun">✓</span>` : ""}
+              ${x}
+              <span class="tcwhen">${c.createdAt ? fmtAgo(Number(c.createdAt)) : ""}</span>
+            </div>
+            <div class="tcnum">${figure}${at}</div>
+            ${c.text ? `<div class="tctext">${linkify(c.text)}</div>` : ""}
+            ${c.peakAt ? `<div class="tcfoot"><span class="tstat">peaked ${fmtAgo(Number(c.peakAt))}</span></div>` : ""}
+          </div>`;
         }).join("");
 
         const pager = maxPage > 1
@@ -1884,14 +2245,15 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
               <button data-cpage="next" ${coPage >= maxPage - 1 ? "disabled" : ""}>Next ›</button>
             </div>`
           : "";
-        body = head + rows + pager + `<div class="gsrc">via pump.fun</div>`;
+        body = summary + label + rows + pager +
+          `<div class="gsrc">ranked by multiple since the call · via pump.fun</div>`;
       }
       content.innerHTML = `${headHtml}${body}
         <div class="bar" style="margin-top:10px"><button class="go locked" data-act="back">← Back to trading</button></div>${footHtml}`;
     } else if (view === "fomo") {
       const fmtAgo = (ms: number) => {
         const d = Date.now() - ms;
-        if (d < 60_000) return "just now";
+        if (d < 60_000) return "now";
         if (d < 3_600_000) return Math.floor(d / 60_000) + "m ago";
         if (d < 86_400_000) return Math.floor(d / 3_600_000) + "h ago";
         return Math.floor(d / 86_400_000) + "d ago";
@@ -1902,63 +2264,71 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       } else if (!fomoData || !fomoData.count) {
         body = `<div class="note">${fomoErr ? `Couldn't load: ${esc(fomoErr)}` : "No trader has written a thesis on this token yet."}<br/><br/><button class="amt" data-act="fretry" style="padding:7px 18px">Retry</button></div>`;
       } else {
-        // The handle is a snapshot from post time and traders rename, so this
-        // is labelled as a claim rather than an identity — a stale handle on a
-        // large position reads as the project's own account otherwise.
         // Ranked by the size of the position behind the words, not by recency.
-        // Conviction is cheap to type and expensive to hold; sorting on holdings
-        // is what separates this from a comment section.
+        // Conviction is cheap to type and expensive to hold, and sorting on the
+        // position is what separates this from a comment section.
         const all = fomoData.items || [];
         const PAGE = 5;
         const maxPage = Math.max(1, Math.ceil(all.length / PAGE));
         if (fomoPage >= maxPage) fomoPage = maxPage - 1;
         const start = fomoPage * PAGE;
-        const totalHeld = all.reduce((n: number, t: any) => n + (Number(t.positionUsd) || 0), 0);
-        const head = `<div class="fhead">${FOMO_MARK}<span class="fttl">Trader theses</span>` +
-          `<span class="fsub">${esc(fomoData.symbol || "")} · ${all.length}` +
-          `${totalHeld > 0 ? ` · ${fmtCompact(totalHeld)} held` : ""}</span></div>`;
+
+        const posOf = (t: any) => { const v = Number(t.positionUsd); return isFinite(v) && v > 0 ? v : 0; };
+        const totalHeld = all.reduce((n: number, t: any) => n + posOf(t), 0);
+        const maxPos = all.reduce((m: number, t: any) => Math.max(m, posOf(t)), 0);
+
+        // The two numbers that decide whether this tab is worth reading: how
+        // much money stands behind the theses, and whether that is one whale
+        // or a crowd.
+        const summary = `<div class="hsum">
+          <div class="hsumcell"><span>Theses</span><b>${all.length}</b></div>
+          <div class="hsumcell"><span>Backed by</span><b>${totalHeld > 0 ? fmtCompact(totalHeld) : "—"}</b></div>
+          <div class="hsumcell"><span>Largest</span><b>${maxPos > 0 ? fmtCompact(maxPos) : "—"}</b></div>
+        </div>`;
+        const label = `<div class="tclabel">${FOMO_MARK}<span>Trader theses</span>` +
+          `<span class="r">${esc(fomoData.symbol || "")}</span></div>`;
+
         const HEART = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.5-7 9-7 9z"/></svg>`;
         const REPLY = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H4l2.3-2.3A8 8 0 1 1 21 12z"/></svg>`;
 
         const rows = all.slice(start, start + PAGE).map((t: any, i: number) => {
           const rank = start + i + 1;
           const pct = t.pnlPct;
-          const up = pct == null ? true : pct >= 0;
-          // The position, stated at display size: it is the reason to read the
-          // sentence under it. A trader with no holdings left has closed out, so
-          // the row leads with the return instead of a zero.
+          const up = pct == null ? true : Number(pct) >= 0;
+          const pos = posOf(t);
+          // Position as the card's width, scaled to the largest on screen — the
+          // same reading the holders table asks for.
+          const w = maxPos > 0 && pos > 0 ? Math.max(1.5, Math.min(100, (pos / maxPos) * 100)) : 0;
           // "holds" and "traded" are different claims: one is money still at
-          // risk, the other is money that was committed. Saying the wrong one
-          // would misrepresent the author.
-          const held = t.positionUsd
-            ? `<span class="tkind">${t.positionKind === "traded" ? "traded" : "holds"}</span>` +
-              `<span class="theld">${fmtCompact(t.positionUsd)}</span>` +
-              (pct == null ? "" : `<span class="tdot ${up ? "" : "dn"}"></span>`)
-            : "";
+          // risk, the other is money that was committed and may already be out.
+          // Saying the wrong one would misrepresent the author.
+          const held = pos > 0
+            ? `<span class="tckind">${t.positionKind === "traded" ? "traded" : "holds"}</span>` +
+              `<span class="tcpos">${fmtCompact(pos)}</span>`
+            : `<span class="tcpos mut">position not reported</span>`;
           const move = pct == null ? ""
-            : `<span class="tpct ${up ? "up" : "dn"}">${up ? "▲" : "▼"} ${Math.abs(Number(pct)).toFixed(2)}%</span>`;
+            : `<span class="tcpct ${up ? "up" : "dn"}">${up ? "+" : "−"}${Math.abs(Number(pct)).toFixed(1)}%</span>`;
           // Realised profit is a different claim from an open position — they
           // have already taken some off the table.
           const took = t.realizedPnlUsd
-            ? `<span class="ttook">took ${fmtCompact(t.realizedPnlUsd)}</span>` : "";
+            ? `<span class="tctook">took ${fmtCompact(t.realizedPnlUsd)}</span>` : "";
           const av = authorAvatar(t.authorId || t.authorHandle || "?", t.avatar);
-          const foot = [
-            `<span class="tstat">${HEART}${t.likeCount || 0}</span>`,
-            t.replyCount ? `<span class="tstat">${REPLY}${t.replyCount}</span>` : "",
-          ].join("");
-          return `<div class="thesis"><div class="trow">
-            <div class="tavwrap">${av}<span class="trank">${rank}</span></div>
-            <div class="tbody">
-              <div class="thead">
-                <span class="tname">${esc(t.authorName || t.authorHandle || "unknown")}</span>
-                <span class="tbadge">Thesis</span>
-                ${t.authorIsDev ? `<span class="tdev">DEV</span>` : ""}
-                <span class="twhen">${t.createdAt ? fmtAgo(Number(t.createdAt)) : ""}</span>
-              </div>
-              <div class="tpos">${held}${move}${took}</div>
-              <div class="ttext">${linkify(t.thesis || "")}</div>
-              <div class="tfoot">${foot}</div>
-            </div></div></div>`;
+          return `<div class="tcard">
+            <span class="hfill" style="width:${w.toFixed(1)}%"></span>
+            <div class="tctop">
+              <span class="tcrank">${rank}</span>${av}
+              <span class="tcname">${esc(t.authorName || t.authorHandle || "unknown")}</span>
+              ${t.authorIsDev ? `<span class="htag kol">DEV</span>` : ""}
+              <span class="tcwhen">${t.createdAt ? fmtAgo(Number(t.createdAt)) : ""}</span>
+              ${/^[A-Za-z0-9_]{1,15}$/.test(String(t.authorHandle || "")) ? `<button class="tcfollow" data-follow="${esc(t.authorHandle)}" title="Copytrade @${esc(t.authorHandle)}">Follow</button>` : ""}
+            </div>
+            <div class="tcnum">${held}${move}${took}</div>
+            ${t.thesis ? `<div class="tctext">${linkify(t.thesis)}</div>` : ""}
+            <div class="tcfoot">
+              <span class="tstat">${HEART}${t.likeCount || 0}</span>
+              ${t.replyCount ? `<span class="tstat">${REPLY}${t.replyCount}</span>` : ""}
+            </div>
+          </div>`;
         }).join("");
 
         const pager = maxPage > 1
@@ -1968,7 +2338,8 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
               <button data-fpage="next" ${fomoPage >= maxPage - 1 ? "disabled" : ""}>Next ›</button>
             </div>`
           : "";
-        body = head + rows + pager + `<div class="gsrc">via FOMO</div>`;
+        body = summary + label + rows + pager +
+          `<div class="gsrc">ranked by position size · via FOMO</div>`;
       }
       content.innerHTML = `${headHtml}${body}
         <div class="bar" style="margin-top:10px"><button class="go locked" data-act="back">← Back to trading</button></div>${footHtml}`;
@@ -2009,7 +2380,35 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
     bind('[data-act="hretry"]', () => { ensureHolders(true); render(); });
     if (FOMO_ENABLED) bind('[data-act="fomo"]', () => { view = "fomo"; ensureFomo(); render(); });
     if (CALLOUTS_ENABLED) bind('[data-act="callouts"]', () => { view = "callouts"; ensureCallouts(); render(); });
-    bind('[data-act="ithesis"]', () => { view = "ithesis"; render(); });
+    bind('[data-act="ithesis"]', () => { view = "ithesis"; impMsg = ""; ensureImpulse(); render(); });
+    bind('[data-act="isaveprofile"]', () => {
+      const username = impUsername.trim();
+      if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) { impMsg = "Username must be 3–24 letters, numbers or _"; render(); return; }
+      impSaving = true; impMsg = ""; render();
+      send({ type: "STRIX_ITHESIS_SETPROFILE", username, dp: impDp }).then((r: any) => {
+        impSaving = false;
+        if (r?.error) { impMsg = String(r.error); render(); return; }
+        impProfile = r?.v || null; impSetup = false; impDp = null; impMsg = ""; render();
+      }).catch((e: any) => { impSaving = false; impMsg = String(e?.message || e); render(); });
+    });
+    bind("[data-iauthor]", (el) => {
+      const addr = el.getAttribute("data-iauthor");
+      if (!addr) return;
+      const exp = CHAIN_LABEL[chain || "robinhood"] || CHAIN_LABEL.robinhood;
+      window.open(`${exp.explorer}/address/${addr}`, "_blank", "noopener,noreferrer");
+    });
+    bind('[data-act="ipost"]', () => {
+      const text = impDraft.trim();
+      if (text.length < 3) { impMsg = "Write a little more — say why you're in."; render(); return; }
+      const priceUsd = Number(info?.priceUsd) || 0;
+      impSaving = true; impMsg = ""; render();
+      send({ type: "STRIX_ITHESIS_WRITE", ca, chain: chain || chainHint || null, text, holdingAmount: h, holdingUsd: priceUsd ? h * priceUsd : null }).then((r: any) => {
+        impSaving = false;
+        if (r?.error) { impMsg = String(r.error); render(); return; }
+        if (impData?.items) impData.items.unshift(r.v); else impData = { items: [r.v], count: 1 };
+        impDraft = ""; impMsg = ""; render();
+      }).catch((e: any) => { impSaving = false; impMsg = String(e?.message || e); render(); });
+    });
     bind('[data-act="cretry"]', () => ensureCallouts(true));
     bind("[data-cpage]", (el: any) => {
       const max = Math.max(1, Math.ceil((coData?.items?.length || 0) / 5));
@@ -2030,6 +2429,12 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       render();
     });
     bind('[data-act="fretry"]', () => { ensureFomo(true); render(); });
+    // Copytrade a FOMO trader: open the wallet's Copytrade screen with the handle
+    // prefilled (funding + confirmation happen there, not on someone else's page).
+    bind("[data-follow]", (el) => {
+      const h = el.getAttribute("data-follow");
+      if (h) send({ type: "STRIX_OPEN_COPY", handle: h });
+    });
     bind("[data-fpage]", (el) => {
       fomoPage += el.dataset.fpage === "next" ? 1 : -1;
       if (fomoPage < 0) fomoPage = 0;
@@ -2077,6 +2482,45 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
         ensureQuote();
       });
     }
+    // Impulse Thesis inputs: keep the typed text in state (so a re-render never
+    // wipes it) and set `editing` so the 20s tick does not re-render mid-type.
+    const iuname = panel.querySelector<HTMLInputElement>("[data-iuname]");
+    if (iuname) {
+      iuname.addEventListener("focus", () => { editing = true; });
+      iuname.addEventListener("blur", () => { editing = false; });
+      iuname.addEventListener("input", () => { impUsername = iuname.value; });
+    }
+    const idraft = panel.querySelector<HTMLTextAreaElement>("[data-idraft]");
+    if (idraft) {
+      idraft.addEventListener("focus", () => { editing = true; });
+      idraft.addEventListener("blur", () => { editing = false; });
+      idraft.addEventListener("input", () => { impDraft = idraft.value; });
+    }
+    const idp = panel.querySelector<HTMLInputElement>("[data-idp]");
+    if (idp) idp.addEventListener("change", () => {
+      const f = idp.files?.[0];
+      if (!f) return;
+      if (f.size > 6_000_000) { impMsg = "Image too large (max 6MB)."; render(); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          // Cover-crop to a 128×128 square and re-encode small, so the stored
+          // data URI stays well under the backend's limit.
+          const c = document.createElement("canvas");
+          c.width = 128; c.height = 128;
+          const g = c.getContext("2d");
+          if (!g) return;
+          const s = Math.min(img.width, img.height);
+          g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 128, 128);
+          try { impDp = c.toDataURL("image/jpeg", 0.85); } catch { impDp = null; }
+          render();
+        };
+        img.src = String(reader.result);
+      };
+      reader.readAsDataURL(f);
+    });
+
     const csell = panel.querySelector<HTMLInputElement>("[data-csell]");
     if (csell) {
       csell.addEventListener("focus", () => { editing = true; });
@@ -2116,6 +2560,12 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       else if (!r?.error && r?.data) { ginfo = r.data; if (view === "trade") render(); }
     });
     if (info.logo) send({ type: "STRIX_IMAGE", url: info.logo }).then((r) => { if (r?.data) { logoData = r.data; render(); } });
+    // Popularity (non-blocking): the open we just tracked is already counted, so
+    // this reflects it. Cheap and cached-friendly on the backend.
+    send({ type: "STRIX_ISTATS", ca }).then((r: any) => {
+      const v = r && "v" in r ? r.v : null;
+      if (v && (v.opened || v.seen)) { impStats = v; render(); }
+    }).catch(() => {});
     refreshHolding();
     // Live: refresh price + status every 20s while open.
     timer = setInterval(tick, 20_000);
@@ -2133,20 +2583,40 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
     if (phase !== "busy" && !editing && view !== "bubbles") render();
   }
 
+  // Log a completed trade for the profit leaderboard. Best-effort and
+  // fire-and-forget — a failed log must never affect the trade itself.
+  function logTrade(side: "buy" | "sell", tokenAmount: number) {
+    const priceUsd = Number(info?.priceUsd) || 0;
+    if (!(tokenAmount > 0) || !(priceUsd > 0)) return;
+    send({
+      type: "STRIX_ILOG", ca, chain: chain || chainHint || null,
+      symbol: info?.symbol || "", side, tokenAmount, priceUsd,
+      usdValue: tokenAmount * priceUsd,
+    }).catch(() => {});
+  }
+
   async function doBuy() {
     phase = "busy"; message = "Confirming…"; render();
+    // Capture the expected token amount from the live quote before it clears.
+    const dec = Number(info?.decimals) || 18;
+    const boughtTokens = quote?.expectedOut && quote.expectedOut !== "0"
+      ? Number(quote.expectedOut) / 10 ** dec : 0;
     const r = await send({ type: "STRIX_BUY", ca, amountEth: amount, chain });
     if (r?.error === "locked") { status = { unlocked: false }; phase = "ready"; render(); return; }
     if (r?.error) { phase = "error"; message = r.error; render(); return; }
     hash = r.hash; phase = "done"; render();
+    logTrade("buy", boughtTokens);
     status = await send({ type: "STRIX_STATUS", chain }); refreshHolding();
   }
   async function doSell() {
     phase = "busy"; message = "Confirming…"; render();
+    // Tokens sold = the current holding times the percentage.
+    const soldTokens = (Number(holding?.amount) || 0) * (Math.max(0, Math.min(100, pct)) / 100);
     const r = await send({ type: "STRIX_SELL", ca, pct, chain });
     if (r?.error === "locked") { status = { unlocked: false }; phase = "ready"; render(); return; }
     if (r?.error) { phase = "error"; message = r.error; render(); return; }
     hash = r.hash; phase = "done"; render();
+    logTrade("sell", soldTokens);
     status = await send({ type: "STRIX_STATUS", chain }); refreshHolding();
   }
 
@@ -2289,7 +2759,14 @@ const PATH_CHAIN: Record<string, string> = {
 /** Query keys that carry a contract address on the sites we care about. */
 const CA_PARAMS = ["ca", "address", "token", "tokenAddress", "mint", "contract", "outputCurrency", "a"];
 
-type UrlHit = { ca: string; chain: string | null };
+type UrlHit = { ca: string; chain: string | null; pair?: boolean };
+
+/** Sites that route by liquidity pool, not by token: the address in the URL is
+ *  a pair/pool, so it must be resolved to its base token before trading. */
+const PAIR_HOST = /(^|\.)(dexscreener\.com|dextools\.io|geckoterminal\.com)$/;
+/** A pool address on these sites: an EVM contract/poolId (0x + 40 or more hex,
+ *  so a 64-hex Robinhood V4 poolId counts) or a base58 pool on Solana. */
+const isPoolAddr = (s: string) => /^0x[a-fA-F0-9]{40,}$/.test(s) || (URL_SOL.test(s) && looksLikeMint(s));
 
 /**
  * The token this page is about, read from its URL, or null.
@@ -2309,6 +2786,17 @@ function urlToken(href: string): UrlHit | null {
   for (const seg of segs) {
     const c = PATH_CHAIN[seg.toLowerCase()];
     if (c) { chain = c; break; }
+  }
+
+  // On pool-routed sites the trailing address is the pair, not the token — hand
+  // it back flagged so the caller resolves it. GeckoTerminal also has real token
+  // pages (/tokens/<ca>); those trade the address directly.
+  if (PAIR_HOST.test(u.hostname)) {
+    const last = segs[segs.length - 1] || "";
+    if (isPoolAddr(last)) {
+      const tokenPage = segs.some((s) => s.toLowerCase() === "tokens");
+      return tokenPage ? { ca: last, chain } : { ca: last, chain, pair: true };
+    }
   }
 
   const consider = (raw: string | null | undefined): UrlHit | null => {
@@ -2372,6 +2860,94 @@ function xProfileHandle(href: string): string | null {
   return handle;
 }
 
+/* ── a token named in the profile bio ──────────────────────────────────────
+   Projects put the contract in the bio, not in a tweet — it is the one place
+   it stays put while the timeline moves. The tweet scanner never sees it,
+   because the bio is not a tweet, so a project account could sit there with
+   its address on screen and no way to trade it.
+
+   Read from the bio's text nodes rather than textContent: X renders the bio as
+   a run of spans and emoji images, and textContent joins them with nothing at
+   all, so "CA:" fused to the address and the trailing-character guard in
+   ADDR_RE then rejected the match. Exactly the bug that hid the button on
+   Telegram. Links in the bio are deliberately not followed: X truncates their
+   display text to an ellipsis and rewrites the href to t.co, so neither half
+   holds a full address, and guessing from a truncated one would be worse than
+   not offering. */
+
+type BioToken = { ca: string; chain: string | null; label: string; viaCashtag: boolean };
+
+/** Resolve once `sel` exists, or null after `ms`. */
+function waitFor(sel: string, ms = 4000): Promise<Element | null> {
+  const hit = document.querySelector(sel);
+  if (hit) return Promise.resolve(hit);
+  return new Promise((resolve) => {
+    const done = (el: Element | null) => { clearTimeout(t); ob.disconnect(); resolve(el); };
+    const ob = new MutationObserver(() => {
+      const el = document.querySelector(sel);
+      if (el) done(el);
+    });
+    const t = setTimeout(() => done(null), ms);
+    ob.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+function xProfileBioText(): string {
+  const parts: string[] = [];
+  // The bio itself, plus the row under it — location, join date and the
+  // website field, which is where the other half of these accounts put it.
+  for (const sel of ['[data-testid="UserDescription"]', '[data-testid="UserProfileHeader_Items"]']) {
+    document.querySelectorAll(sel).forEach((el) => parts.push(nodeText(el)));
+  }
+  return parts.join(String.fromCharCode(10));
+}
+
+/**
+ * The first tradable token named in the bio, or null.
+ *
+ * Addresses are tried before cashtags because an address IS the token, while a
+ * cashtag is a symbol that several tokens can share and has to be guessed at.
+ * Offering the guess when the certainty is sitting in the same sentence would
+ * be choosing the worse of two answers.
+ *
+ * Every candidate still goes through the same verification a tweet's would:
+ * STRIX_ISTOKEN for an address, the liquidity floors in resolveTicker for a
+ * symbol. A bio is not a trusted source just because it is a bio.
+ */
+async function findBioToken(handle: string): Promise<BioToken | null> {
+  // X is a single-page app, so the URL changes before the new profile renders.
+  // Reading straight away returns the PREVIOUS account's bio — which would put
+  // a buy button for one person's token on somebody else's profile, the worst
+  // way this feature could be wrong. So: wait for the header, then confirm the
+  // handle it renders is the one we were asked about before reading a word.
+  const head = await waitFor('[data-testid="UserName"]');
+  if (!head) return null;
+  if (!nodeText(head).toLowerCase().includes("@" + handle.toLowerCase())) return null;
+
+  const text = xProfileBioText();
+  if (!text) return null;
+
+  const evm = text.match(ADDR_RE) || [];
+  const sol = (text.match(SOL_RE) || []).filter(looksLikeMint);
+  for (const ca of [...evm, ...sol].slice(0, 4)) {
+    if (await isToken(ca)) {
+      return { ca, chain: tokenChains.get(ca.toLowerCase()) || null, label: "Buy this token", viaCashtag: false };
+    }
+  }
+
+  // Cashtags, in the order written. A bio commonly names the account's own
+  // ticker first and the chains it trades on after.
+  const tags: string[] = [];
+  for (const m of text.matchAll(TICKER_RE)) if (m[1]) tags.push(m[1]);
+  for (const sym of tags.slice(0, 3)) {
+    const r = await send({ type: "STRIX_TICKER", symbol: sym }).catch(() => null);
+    if (r?.address) {
+      return { ca: String(r.address), chain: r.chain || null, label: `Buy $${sym.toUpperCase()}`, viaCashtag: true };
+    }
+  }
+  return null;
+}
+
 const TRADER_ATTR = "data-strix-trader";
 const traderDismissed = new Set<string>();
 let traderHandle: string | null = null;
@@ -2386,7 +2962,9 @@ const fmtHold = (s: number) =>
 
 /** Analyze dock: the same shadow-root isolation and trusted-event rule as the
  *  trading panel, so the page can neither read it nor drive it. */
-function mountTraderDock(handle: string, data: any) {
+function mountTraderDock(handle: string, dataIn: any, token: BioToken | null = null) {
+  // Replaced in place once the deep fetch lands, so draw() picks it up.
+  let data = dataIn;
   const host = document.createElement("div");
   host.setAttribute(HOST_ATTR, "");
   host.setAttribute(TRADER_ATTR, "");
@@ -2403,27 +2981,46 @@ function mountTraderDock(handle: string, data: any) {
   sh.appendChild(dock);
   document.body.appendChild(host);
 
+  // One primary action, always. When the account is a trader that is the
+  // profile; when it is only a contract in a bio, the token takes the lime and
+  // there is no second pill to demote.
   const label = "Analyze trader";
   const pill = document.createElement("button");
-  pill.className = "pill";
+  pill.className = data ? "pill" : "pill hidden";
   pill.innerHTML = `${LOGO}<span>${label}</span>`;
-  dock.appendChild(pill);
+  if (data) dock.appendChild(pill);
 
-  const close = document.createElement("button");
-  close.className = "dockx";
-  close.textContent = "hide for this profile";
-  close.addEventListener("click", (ev) => {
+  if (token) {
+    const tp = document.createElement("button");
+    // Secondary only when it is sharing the dock with the profile button.
+    tp.className = data ? "pill alt" : "pill";
+    tp.innerHTML = `${LOGO}<span>${esc(token.label)}</span>`;
+    tp.title = token.viaCashtag
+      ? "Resolved from a cashtag in the bio — verify the contract before trading"
+      : token.ca;
+    tp.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return;
+      openDrawer(token.ca, token.viaCashtag, token.chain);
+    });
+    dock.appendChild(tp);
+  }
+
+  const hide = document.createElement("button");
+  hide.className = "dockx";
+  hide.textContent = "hide for this profile";
+  hide.addEventListener("click", (ev) => {
     if (!ev.isTrusted) return;
     traderDismissed.add(handle.toLowerCase());
     removeTraderDock();
   });
-  dock.appendChild(close);
+  dock.appendChild(hide);
 
   let panel: HTMLElement | null = null;
   // Which list is showing, and where in it. Held here rather than in the markup
   // so paging survives a re-render.
   let tab: "positions" | "trades" = "positions";
   let holdPage = 0;
+  let close = () => {};
 
   const draw = () => {
     if (!panel) return;
@@ -2433,12 +3030,17 @@ function mountTraderDock(handle: string, data: any) {
       el.addEventListener("click", (ev) => {
         if (!ev.isTrusted) return;
         tab = el.dataset.ttab === "trades" ? "trades" : "positions";
+        holdPage = 0;
         draw();
       }));
+    panel.querySelectorAll<HTMLElement>('[data-act="tpclose"]').forEach((el) =>
+      el.addEventListener("click", (ev) => { if (ev.isTrusted) close(); }));
     panel.querySelectorAll<HTMLElement>("[data-hpage]").forEach((el) =>
       el.addEventListener("click", (ev) => {
         if (!ev.isTrusted) return;
-        const total = data.fomo?.holdings?.length || 0;
+        // Page against whichever list is showing — positions and trades share
+        // the holdPage cursor but have different lengths.
+        const total = (tab === "trades" ? data.fomo?.trades?.length : data.fomo?.holdings?.length) || 0;
         const max = Math.max(1, Math.ceil(total / HOLD_PAGE));
         holdPage += el.dataset.hpage === "next" ? 1 : -1;
         holdPage = Math.max(0, Math.min(max - 1, holdPage));
@@ -2446,12 +3048,45 @@ function mountTraderDock(handle: string, data: any) {
       }));
   };
 
+  // Opened as the drawer, not as a card under the pill. A profile is a page of
+  // reading — PnL windows, a track record, then two paginated lists — and the
+  // 462px card it used to live in made every one of those a scroll. Appended to
+  // the shadow root rather than to .dock because the dock is anchored to the
+  // bottom-right corner and sized to its contents; the drawer owns the full
+  // height of the viewport.
+  close = () => {
+    if (!panel) return;
+    panel.remove();
+    panel = null;
+    dock.style.visibility = "";
+    pill.querySelector("span")!.textContent = label;
+  };
+
+  // Fetched on open, not on arrival. The stats and both lists cost 3,250 CU on
+  // top of the identity check, and the dock appears on every X profile whether
+  // or not anyone wanted it — paying for the panel up front spent the month's
+  // allowance on profiles nobody opened.
+  let deepLoaded = false;
+  const loadDeep = async () => {
+    if (deepLoaded) return;
+    deepLoaded = true;
+    const full = await send({ type: "STRIX_TRADER", handle, deep: true }).catch(() => null);
+    if (full?.fomo) { data = full; if (panel) draw(); }
+  };
+
   pill.addEventListener("click", (ev) => {
     if (!ev.isTrusted) return;
-    if (panel) { panel.remove(); panel = null; pill.querySelector("span")!.textContent = label; return; }
+    if (panel) { close(); return; }
     panel = document.createElement("div");
-    panel.className = "panel wide";
-    dock.appendChild(panel);
+    panel.className = "drawer";
+    sh.appendChild(panel);
+    makeDrawerDraggable(panel);
+    void loadDeep();
+    // The dock sits bottom-right, which is underneath the drawer — its pill and
+    // "hide for this profile" link were printing straight through the pager.
+    // The drawer carries its own close button, so the dock has nothing left to
+    // do while it is open.
+    dock.style.visibility = "hidden";
     pill.querySelector("span")!.textContent = "Hide";
     draw();
   });
@@ -2460,7 +3095,37 @@ function mountTraderDock(handle: string, data: any) {
 /** Holdings per page. Eight fills the panel without needing a scroll. */
 const HOLD_PAGE = 8;
 
-const money = (n: number) => (n < 0 ? "-" : "") + "$" + fmtCompact(Math.abs(n));
+/**
+ * A signed USD figure.
+ *
+ * fmtCompact already prefixes the dollar sign, so adding another here printed
+ * "$$781.46" everywhere money() was used. The sign is still applied outside the
+ * symbol rather than inside it, because "-$35.35" is how a loss is written and
+ * "$-35.35" is not.
+ */
+const money = (n: number) => (n < 0 ? "-" : "") + fmtCompact(Math.abs(n));
+
+/** A plain count. fmtCompact is for money and would render 169 as "$169". */
+const fmtCount = (n: any) => {
+  const v = Number(n);
+  if (!isFinite(v)) return "0";
+  return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(v);
+};
+
+/**
+ * A percentage return, at a length that fits the column.
+ *
+ * These run from -100% to five figures on a launchpad win, and "+1847.8%" needs
+ * more room than the row has. Past 100% the decimal is noise — nobody reading a
+ * 19x needs the tenth — so it is dropped, and past 1000% the figure switches to
+ * multiples, which is how people say it anyway.
+ */
+const fmtPct = (v: number) => {
+  const a = Math.abs(v);
+  if (a >= 1000) return `${v < 0 ? "-" : "+"}${(a / 100).toFixed(a >= 10000 ? 0 : 1)}x`;
+  if (a >= 100) return `${v < 0 ? "-" : "+"}${a.toFixed(0)}%`;
+  return `${v < 0 ? "-" : "+"}${a.toFixed(1)}%`;
+};
 
 /**
  * Where to read more about a holding.
@@ -2498,39 +3163,77 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
   // above a single-platform name match, and is still never called confirmed.
   const confirmedBy = f?.link === "confirmed" ? "FOMO" : p?.link === "confirmed" ? "pump.fun" : null;
   const badge = confirmedBy
-    ? `<div class="tvbadge ok"><b>Linked</b> ${confirmedBy} lists @${esc(handle)} as this account's X</div>`
+    ? `<div class="tvbadge ok"><b>Linked.</b> ${confirmedBy} lists @${esc(handle)} as this account's X.</div>`
     : f && p
-      ? `<div class="tvbadge mid"><b>Match on both</b> the same handle trades on FOMO and pump.fun, though neither has confirmed @${esc(handle)}</div>`
-      : `<div class="tvbadge"><b>Name match</b> ${f ? "FOMO" : "pump.fun"} has this handle, but has not confirmed @${esc(handle)}</div>`;
+      ? `<div class="tvbadge mid"><b>Match on both.</b> The same handle trades on FOMO and pump.fun, though neither has confirmed @${esc(handle)}.</div>`
+      : `<div class="tvbadge"><b>Name match.</b> ${f ? "FOMO" : "pump.fun"} has this handle but has not confirmed @${esc(handle)}.</div>`;
 
   const src = [
     f ? `<span class="srcchip">${FOMO_MARK_SM}FOMO</span>` : "",
     p ? `<span class="srcchip">${PUMP_MARK_SM}pump.fun</span>` : "",
   ].join("");
 
-  const pnl = f?.pnl
-    ? `<div class="tpsec">
-        <div class="tplbl">Realised profit</div>
-        <div class="pgrid">${(["24h", "7d", "30d", "all"] as const).map((w) => {
-          const v = f.pnl[w];
-          const cls = v == null ? "" : v >= 0 ? "up" : "dn";
+  // The three figures worth reading before anything else: what they made over
+  // the headline window, how often they are right, and how much they move. The
+  // same strip the holders and thesis tabs open with.
+  // The strip adapts to the source. FomoScan computes windowed PnL and a win
+  // rate, so it leads with those. FOMO has neither — no windowed PnL, no
+  // win-rate endpoint — but it does have a live portfolio value and a total
+  // PnL, which are the honest headline figures for it. Showing empty "30d" and
+  // "win rate" cells for a FOMO profile read as zeros; this shows what exists.
+  const wr = f?.winRate;
+  const fromFomo = f?.statWindow == null && (f?.portfolioUsd != null || f?.pnl?.all != null);
+  let summary = "";
+  if (fromFomo) {
+    const tot = f?.pnl?.all ?? null;
+    summary = `<div class="hsum">
+      <div class="hsumcell"><span>Portfolio</span><b>${f?.portfolioUsd != null ? money(f.portfolioUsd) : "—"}</b></div>
+      <div class="hsumcell"><span>PnL</span><b class="${tot == null ? "" : tot >= 0 ? "lo" : "hi"}">${
+        tot == null ? "—" : (tot >= 0 ? "+" : "") + money(tot)}</b></div>
+      <div class="hsumcell"><span>Volume</span><b>${f?.volumeUsd ? money(f.volumeUsd) : "—"}</b></div>
+    </div>`;
+  } else if (f?.pnl || wr != null || f?.volumeUsd) {
+    const p30 = f?.pnl?.["30d"];
+    summary = `<div class="hsum">
+      <div class="hsumcell"><span>PnL ${esc(f?.statWindow || "30d")}</span><b class="${
+        p30 == null ? "" : p30 >= 0 ? "lo" : "hi"}">${p30 == null ? "—" : (p30 >= 0 ? "+" : "") + money(p30)}</b></div>
+      <div class="hsumcell"><span>Win rate</span><b>${wr == null ? "—" : `${(wr * 100).toFixed(0)}%`}</b></div>
+      <div class="hsumcell"><span>Volume</span><b>${f?.volumeUsd ? money(f.volumeUsd) : "—"}</b></div>
+    </div>`;
+  }
+
+  // Only the windows that carry a figure. The all-time column was a permanent
+  // em-dash once the source changed: FomoScan sweeps 24h, 7d and 30d and has no
+  // lifetime window, and an empty cell in a grid of profits reads as a zero.
+  const pw = (["24h", "7d", "30d", "all"] as const).filter((w) => f?.pnl?.[w] != null);
+  const pnl = f?.pnl && pw.length
+    ? `<div class="tclabel"><span>Realised profit</span><span class="r">on-chain sweep</span></div>
+       <div class="pgrid">${pw.map((w) => {
+          const v = f.pnl![w]!;
           return `<div class="pcell"><span class="plbl">${w === "all" ? "all time" : w}</span>
-            <b class="pval ${cls}">${v == null ? "—" : (v >= 0 ? "+" : "") + money(v)}</b></div>`;
-        }).join("")}</div></div>`
+            <b class="pval ${v >= 0 ? "up" : "dn"}">${(v >= 0 ? "+" : "") + money(v)}</b></div>`;
+        }).join("")}</div>`
     : "";
 
+  // The trading stats describe a 30-day window, not a lifetime, so the window
+  // is stated once in the section header rather than repeated on nine labels.
+  // "Trades 1,024" unqualified next to an account two years old is a different
+  // and much smaller claim than it appears.
   const stats = [
     f?.portfolioUsd ? ["Portfolio", money(f.portfolioUsd)] : null,
     f?.holdings?.length ? ["Positions", String(f.holdings.length)] : null,
     f?.tradeCount ? ["Trades", f.tradeCount.toLocaleString()] : null,
-    f?.volumeUsd ? ["Volume", money(f.volumeUsd)] : null,
+    f?.uniqueTokens ? ["Tokens", String(f.uniqueTokens)] : null,
     f?.avgHoldSeconds ? ["Avg hold", fmtHold(f.avgHoldSeconds)] : null,
-    f?.accountAgeDays ? ["Account age", `${Math.round(f.accountAgeDays)}d`] : null,
+    f?.accountAgeDays ? ["Wallet age", `${Math.round(f.accountAgeDays)}d`] : null,
+    f?.rank && f?.walletsRanked ? ["PnL rank", `#${f.rank}`] : null,
   ].filter(Boolean) as [string, string][];
 
   const statHtml = stats.length
-    ? `<div class="tpsec"><div class="sgrid">${stats.map(([k, v]) =>
-        `<div class="scell"><span class="plbl">${k}</span><b class="sval">${esc(v)}</b></div>`).join("")}</div></div>`
+    ? `<div class="tclabel"><span>Track record</span>${
+        f?.statWindow ? `<span class="r">${esc(f.statWindow)} window</span>` : ""}</div>
+       <div class="sgrid">${stats.map(([k, v]) =>
+        `<div class="scell"><span class="plbl">${esc(k)}</span><b class="sval">${esc(v)}</b></div>`).join("")}</div>`
     : "";
 
   // ── the two lists ──────────────────────────────────────────────────────
@@ -2538,9 +3241,13 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
   const maxPage = Math.max(1, Math.ceil(all.length / HOLD_PAGE));
   const page = Math.max(0, Math.min(maxPage - 1, holdPage));
   const start = page * HOLD_PAGE;
+  // Position value as the row's width, scaled to the largest on screen — the
+  // reading the holders table and the thesis feed already ask for.
+  const maxVal = all.reduce((m: number, h: any) => Math.max(m, Number(h.valueUsd) || 0), 0);
 
-  const row = (sym: string, addr: string | null, mid: string, right: string, title: string) => {
-    const inner = `<span class="hsym">${esc(sym)}</span>${mid}${right}<span class="hgo" aria-hidden="true">↗</span>`;
+  const row = (sym: string, addr: string | null, mid: string, right: string, title: string, fill = 0) => {
+    const bar = fill > 0 ? `<span class="hfill" style="width:${fill.toFixed(1)}%"></span>` : "";
+    const inner = `${bar}<span class="hsym">${esc(sym)}</span>${mid}${right}<span class="hgo" aria-hidden="true">↗</span>`;
     // An anchor rather than a click handler: it needs no script, so the host
     // page's CSP cannot stop it opening.
     return addr
@@ -2550,12 +3257,23 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
 
   const posList = all.length
     ? `<div class="hlist">${all.slice(start, start + HOLD_PAGE).map((h: any) => {
-        const ch = h.change24h;
+        // The percentage is the unrealised return on the position, not a 24h
+        // move — the source has no such figure and inventing the timeframe
+        // would be the kind of wrong nobody can see.
+        const ch = h.returnPct;
         const cls = ch == null ? "" : ch >= 0 ? "up" : "dn";
+        const v = Number(h.valueUsd) || 0;
+        // The chain goes in the gap between the name and the money, which was
+        // dead space. It earns the room: this trader holds the same kind of
+        // position on four different networks and the symbol alone never said
+        // which one a row was.
+        const net = h.chain && CHAIN_LABEL[h.chain]
+          ? `<span class="hchain">${esc(CHAIN_LABEL[h.chain].short)}</span>` : "";
         return row(h.symbol, h.address,
-          `<span class="hval2">${h.valueUsd == null ? "—" : money(h.valueUsd)}</span>`,
-          `<span class="hchg ${cls}">${ch == null ? "" : (ch >= 0 ? "+" : "") + Number(ch).toFixed(1) + "%"}</span>`,
-          `${h.symbol} on DexScreener`);
+          net + `<span class="hval2">${h.valueUsd == null ? "—" : money(h.valueUsd)}</span>`,
+          `<span class="hchg ${cls}">${ch == null ? "" : fmtPct(Number(ch))}</span>`,
+          `${h.symbol}: ${money(v)} held, ${ch == null ? "return unknown" : Number(ch).toFixed(1) + "% unrealised"}`,
+          maxVal > 0 && v > 0 ? Math.max(1.5, Math.min(100, (v / maxVal) * 100)) : 0);
       }).join("")}</div>
       ${maxPage > 1 ? `<div class="pager">
         <button data-hpage="prev" ${page === 0 ? "disabled" : ""}>‹ Prev</button>
@@ -2564,50 +3282,58 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
       </div>` : ""}`
     : `<div class="tpempty">No captured positions for this trader yet.</div>`;
 
-  // Live events first, then the snapshot. They are separated and dated because
-  // /trades is captured on a schedule — measured days behind traders who had
-  // dealt within the hour — and silently mixing the two would present stale
-  // rows as current ones.
-  const live = f?.live || [];
-  const liveList = live.length
-    ? `<div class="liveh"><span class="livedot"></span>Live now</div>
-       <div class="hlist">${live.map((e: any) => {
-        const kind = e.type === "buy" ? "up" : e.type === "sell" ? "dn" : "";
-        return row(e.token || e.type, e.address,
-          `<span class="tstatus ${kind}">${esc(e.type)}</span>`,
-          `<span class="hchg">${e.usdValue ? money(e.usdValue) : ""}</span>` +
-          `<span class="twhen2">${e.ts ? fmtAgoShort(Number(e.ts)) : ""}</span>`,
-          `${e.text || e.token || ""}`);
-       }).join("")}</div>`
-    : "";
-
   const trades = f?.trades || [];
-  const tradeList = liveList + (trades.length
-    ? `<div class="hlist">${trades.map((t: any) => {
+  const tMaxPage = Math.max(1, Math.ceil(trades.length / HOLD_PAGE));
+  const tPage = Math.max(0, Math.min(tMaxPage - 1, holdPage));
+  const tStart = tPage * HOLD_PAGE;
+  const tradeList = (trades.length
+    ? `<div class="hlist">${trades.slice(tStart, tStart + HOLD_PAGE).map((t: any) => {
         const open = t.status !== "closed";
         const v = t.pnlUsd;
         const cls = v == null ? "" : v >= 0 ? "up" : "dn";
         const when = t.closedAt || t.createdAt;
+        const net = t.chain && CHAIN_LABEL[t.chain]
+          ? `<span class="hchain">${esc(CHAIN_LABEL[t.chain].short)}</span>` : "";
+        // A FOMO swap carries a direction (buy/sell) and a USD size but no PnL.
+        // Show those — a green "buy"/red "sell" tag and the dollar size — rather
+        // than a hardcoded "closed" and an empty PnL column.
+        const side = t.status === "buy" ? "up" : t.status === "sell" ? "dn" : "";
+        const label = t.status === "buy" || t.status === "sell" ? t.status : (open ? "open" : "closed");
+        const size = t.amount != null ? money(t.amount) : (v == null ? "—" : (v >= 0 ? "+" : "") + money(v));
         return row(t.symbol, t.address,
-          `<span class="tstatus ${open ? "open" : ""}">${open ? "open" : "closed"}</span>`,
-          `<span class="hchg ${cls}">${v == null ? "—" : (v >= 0 ? "+" : "") + money(v)}</span>` +
+          net + `<span class="tstatus ${side || (open ? "open" : "")}">${label}</span>`,
+          `<span class="hchg">${size}</span>` +
           `<span class="twhen2">${when ? fmtAgoShort(Number(when)) : ""}</span>`,
-          `${t.symbol} on DexScreener`);
-      }).join("")}</div>`
-    : (liveList ? "" : `<div class="tpempty">No captured trades for this trader yet.</div>`));
+          t.note ? String(t.note).slice(0, 180) : `${t.symbol} · ${label} ${size}`);
+      }).join("")}</div>
+      ${tMaxPage > 1 ? `<div class="pager">
+        <button data-hpage="prev" ${tPage === 0 ? "disabled" : ""}>‹ Prev</button>
+        <span>${tStart + 1}–${Math.min(tStart + HOLD_PAGE, trades.length)} of ${trades.length}${f?.moreTrades ? "+" : ""}</span>
+        <button data-hpage="next" ${tPage >= tMaxPage - 1 ? "disabled" : ""}>Next ›</button>
+      </div>` : ""}`
+    : `<div class="tpempty">Nothing recorded for this trader yet.</div>`);
 
-  // The recent list is 20 rows against lifetime counts in the thousands, so the
-  // tab says how many there really are rather than implying this is all of them.
-  const lifetime = (f?.activeCount ?? 0) + (f?.closedCount ?? 0);
-  const holds = `<div class="tpsec">
-    <div class="ttabs">
-      <button class="ttab ${tab === "positions" ? "on" : ""}" data-ttab="positions">
-        Positions <span>${all.length}</span></button>
-      <button class="ttab ${tab === "trades" ? "on" : ""}" data-ttab="trades">
-        Recent trades <span>${trades.length}${lifetime ? ` of ${fmtCompact(lifetime)}` : ""}</span></button>
+  // A trailing "+" rather than a made-up total: the feed says only whether
+  // more exists, not how much, and printing a number we do not have would be
+  // the same overstatement the old lifetime count was there to prevent.
+  const more = f?.moreTrades ? "+" : "";
+  const holds = `<div class="tclabel">
+      <div class="tfseg">
+        <button data-ttab="positions" class="${tab === "positions" ? "on" : ""}">Positions ${all.length}</button>
+        <button data-ttab="trades" class="${tab === "trades" ? "on" : ""}">History ${trades.length}${more}</button>
+      </div>
     </div>
     ${tab === "positions" ? posList : tradeList}
-  </div>`;
+    <div class="gsrc">holdings ranked by value · via FOMO</div>`;
+
+  // Three states, said apart. Still loading is not the same as loaded-and-empty,
+  // and neither is the same as the API refusing us on credits — rendering all
+  // three as blank figures would make an outage look like a quiet trader.
+  const notice = f?.quotaError
+    ? `<div class="tvbadge"><b>Stats unavailable.</b> ${esc(f.quotaError)}</div>`
+    : f && !f.deep
+      ? `<div class="tpempty"><span class="spin"></span> Loading track record…</div>`
+      : "";
 
   const w = f?.wallets || p?.wallets || {};
   const wallets = [
@@ -2622,12 +3348,14 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
         <div class="tpname">${esc(f?.displayName || f?.handle || p?.handle || handle)}
           ${f?.verified ? `<span class="tver">✓</span>` : ""}</div>
         <div class="tphandle">@${esc(handle)}</div>
-        <div class="tpsrc">${src}</div>
       </div>
-      ${f?.followers ? `<div class="tpfol"><b>${fmtCompact(f.followers)}</b><span>followers</span></div>` : ""}
+      ${f?.followers ? `<div class="tpfol" title="Followers on FOMO, not on X"><b>${
+        fmtCount(f.followers)}</b><span>on FOMO</span></div>` : ""}
+      <button class="xclose" data-act="tpclose" title="Close (Esc)" aria-label="Close">&#10005;</button>
     </div>
+    <div class="tpsrc">${src}</div>
     ${badge}
-    ${pnl}${statHtml}${holds}
+    ${notice}${summary}${pnl}${statHtml}${f && !f.deep ? "" : holds}
     ${wallets ? `<div class="tpsec wsec">${wallets}</div>` : ""}
   </div>`;
 }
@@ -2640,15 +3368,25 @@ async function syncTraderDock() {
   if (traderDismissed.has(key)) return;
   if (traderHandle && traderHandle.toLowerCase() === key) return;
 
-  const data = await send({ type: "STRIX_TRADER", handle }).catch(() => null);
-  // No trading profile means no button. Most people on X are not traders, and
-  // an Analyze button that opens an empty panel is worse than no button.
-  if (!data || (!data.fomo && !data.pump)) return;
+  // Both questions at once: is this person a trader, and does their bio name a
+  // token. They are independent — a project account has a contract and no
+  // trading record, a trader has a record and an empty bio — so neither is
+  // allowed to gate the other, and the dock appears if either answers.
+  const [data, token] = await Promise.all([
+    send({ type: "STRIX_TRADER", handle }).catch(() => null),
+    findBioToken(handle).catch(() => null),
+  ]);
+  const trader = data && (data.fomo || data.pump) ? data : null;
+
+  // Neither, so nothing. Most people on X are not traders and do not have a
+  // contract in their bio, and a button that opens an empty panel is worse
+  // than no button at all.
+  if (!trader && !token) return;
   if (xProfileHandle(location.href) !== handle) return; // navigated away mid-flight
 
   removeTraderDock();
   traderHandle = handle;
-  mountTraderDock(handle, data);
+  mountTraderDock(handle, trader, token);
 }
 
 const DOCK_ATTR = "data-strix-dock";
@@ -2703,22 +3441,36 @@ function mountDock(ca: string, chainHint: string | null) {
     removeDock();
   });
 
-  let panel: HTMLElement | null = null;
+  // The URL dock is the entry point on Pons, DexScreener, pump.fun and
+  // DexTools, and it was the last surface still opening the old bottom-right
+  // card — the same panel, the same token, in a different shape and palette
+  // from the one a tweet opens. It uses openDrawer now, so every route into
+  // the trade panel lands on the same screen.
   pill.addEventListener("click", (ev) => {
     if (!ev.isTrusted) return;
-    if (panel) { panel.remove(); panel = null; pill.querySelector("span")!.textContent = label; return; }
-    panel = document.createElement("div");
-    panel.className = "panel";
-    dock.appendChild(panel);
-    pill.querySelector("span")!.textContent = "Hide";
-    runPanel(ca, panel, false, chainHint);
+    openDrawer(ca, false, chainHint);
+    pill.querySelector("span")!.textContent = drawerCa === ca ? "Hide" : label;
   });
 }
 
 /** Bring the dock in line with whatever the URL now points at. */
 async function syncDock() {
-  const hit = urlToken(location.href);
-  if (!hit) { if (dockCa) removeDock(); return; }
+  const raw = urlToken(location.href);
+  if (!raw) { if (dockCa) removeDock(); return; }
+
+  // DexScreener-style URLs name a pool, not a token: resolve it to the real
+  // contract first. The URL still holds the pool address, so the "navigated
+  // away" checks below compare against that.
+  let hit: UrlHit = raw;
+  if (raw.pair) {
+    const poolKey = raw.ca.toLowerCase();
+    const r = await send({ type: "STRIX_PAIRTOKEN", pair: raw.ca, chain: raw.chain });
+    const now = urlToken(location.href);
+    if (!now || now.ca.toLowerCase() !== poolKey) return; // moved on mid-resolve
+    if (!r?.ca) { if (dockCa) removeDock(); return; }      // pool didn't resolve
+    hit = { ca: String(r.ca), chain: r.chain || raw.chain };
+  }
+
   const key = hit.ca.toLowerCase();
   if (dockDismissed.has(key)) return;
   if (dockCa && dockCa.toLowerCase() === key) return; // already showing this one
@@ -2726,9 +3478,10 @@ async function syncDock() {
   // Verified before it mounts, exactly like the inline pill: a wallet address
   // or a base58-shaped path word must never get a Buy button.
   if (!(await isToken(hit.ca, hit.chain || undefined))) return;
-  // The user may have navigated again while that lookup was in flight.
+  // The user may have navigated again while that lookup was in flight — compare
+  // against the pool for a pair URL, the token for a direct one.
   const still = urlToken(location.href);
-  if (!still || still.ca.toLowerCase() !== key) return;
+  if (!still || still.ca.toLowerCase() !== raw.ca.toLowerCase()) return;
 
   removeDock();
   dockCa = hit.ca;

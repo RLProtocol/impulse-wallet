@@ -1,5 +1,6 @@
 import { useWallet } from "./state";
-import { Logo, Spinner, Toasts } from "./components/ui";
+import { Toasts } from "./components/ui";
+import mascot from "./assets/mascot.png";
 import Onboarding from "./screens/Onboarding";
 import Unlock from "./screens/Unlock";
 import Home from "./screens/Home";
@@ -11,6 +12,9 @@ import Stocks from "./screens/Stocks";
 import Asset from "./screens/Asset";
 import Settings from "./screens/Settings";
 import Accounts from "./screens/Accounts";
+import Leaderboard from "./screens/Leaderboard";
+import Copytrade from "./screens/Copytrade";
+import Popularity from "./screens/Popularity";
 import Chart from "./screens/Chart";
 import Holders from "./screens/Holders";
 import SecurityNotice from "./screens/SecurityNotice";
@@ -21,9 +25,12 @@ export default function App() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-[560px] flex-col items-center justify-center gap-3">
-        <Logo className="h-12 w-12" />
-        <Spinner className="h-5 w-5 text-lime" />
+      <div className="flex min-h-[560px] flex-col items-center justify-center gap-4">
+        <div className="relative grid place-items-center">
+          <div className="mascot-glow absolute inset-0 -z-10 rounded-full bg-lime/30 blur-2xl" />
+          <img src={mascot} alt="Impulse" className="mascot-bob h-28 w-28 object-contain" />
+        </div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Loading Impulse</div>
       </div>
     );
   }
@@ -44,6 +51,9 @@ export default function App() {
       case "chart": return <Chart kind={screen.kind} address={screen.address} symbol={screen.symbol} />;
       case "holders": return <Holders ca={screen.ca} symbol={screen.symbol} />;
       case "accounts": return <Accounts />;
+      case "leaderboard": return <Leaderboard />;
+      case "copytrade": return <Copytrade handle={screen.handle} />;
+      case "popularity": return <Popularity />;
       case "settings": return <Settings />;
       default: return <Home />;
     }

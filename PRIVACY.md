@@ -1,14 +1,14 @@
-# HoodX Wallet — Privacy Policy
+# Impulse Wallet — Privacy Policy
 
 _Last updated: July 26, 2026_
 
-HoodX Wallet is a non-custodial cryptocurrency wallet browser extension for
+Impulse Wallet is a non-custodial cryptocurrency wallet browser extension for
 Robinhood Chain. This policy explains what data the extension handles and
 where it goes.
 
 ## What we collect
 
-**Nothing.** HoodX Wallet has no backend server, no analytics, no telemetry,
+**Nothing.** Impulse Wallet has no backend server, no analytics, no telemetry,
 and no user accounts. We (the developers) never receive, see, or store any of
 your data.
 
@@ -53,4 +53,4 @@ We do not collect data, therefore we do not share or sell any.
 
 ## Contact
 
-Questions: hoodxrh@gmail.com
+Questions: impulsexrh@gmail.com

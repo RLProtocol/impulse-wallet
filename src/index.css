@@ -16,8 +16,9 @@ body,
 body {
   width: 380px;
   min-height: 560px;
-  background: hsl(156 24% 6%);
-  color: hsl(90 20% 97%);
+  /* Storm-black ground from the mascot's cloud (matches the website #040603). */
+  background: #040603;
+  color: #f3f7ec;
   font-family: "Sora", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
@@ -31,13 +32,13 @@ body.expanded {
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-border bg-surface;
+    @apply rounded-3xl border border-border bg-surface;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
   }
   .btn-primary {
-    @apply btn bg-lime text-[hsl(156_40%_7%)] shadow-glow hover:opacity-90;
+    @apply btn bg-lime text-lime-on shadow-glow hover:opacity-90;
   }
   .btn-ghost {
     @apply btn border border-border bg-surface2 text-white hover:border-lime/50;
@@ -46,7 +47,7 @@ body.expanded {
     @apply btn bg-danger/15 border border-danger/40 text-danger hover:bg-danger/25;
   }
   .input {
-    @apply w-full rounded-xl border border-border bg-surface2 px-3 py-3 text-sm text-white outline-none placeholder:text-muted focus:border-lime/60;
+    @apply w-full rounded-2xl border border-border bg-surface2 px-3 py-3 text-sm text-white outline-none placeholder:text-muted focus:border-lime/60;
   }
   .label {
     @apply text-[11px] uppercase tracking-wider text-muted font-medium;
@@ -65,7 +66,7 @@ body.expanded {
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(150 14% 22%);
+  background: #2a3320;
   border-radius: 8px;
 }
 
@@ -80,4 +81,19 @@ body.expanded {
 }
 .spin {
   animation: spin 0.8s linear infinite;
+}
+
+/* ── Lightning Sprout mascot motion ─────────────────────────── */
+@keyframes mascotBob {
+  0%, 100% { transform: translateY(0) rotate(-2.5deg); }
+  50%      { transform: translateY(-11px) rotate(2.5deg); }
+}
+.mascot-bob { animation: mascotBob 2.6s ease-in-out infinite; }
+@keyframes mascotGlow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.08); }
+}
+.mascot-glow { animation: mascotGlow 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mascot-bob, .mascot-glow { animation: none !important; }
 }

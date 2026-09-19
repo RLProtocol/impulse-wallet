@@ -3,12 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "HoodX Wallet — a Web3 wallet for Robinhood Chain (stocks + DEX trading)",
+  "description": "Impulse Wallet \u2014 a Web3 wallet for Robinhood Chain (stocks + DEX trading)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:firefox": "npm run build && node scripts/build-firefox.mjs",
+    "ff:run": "web-ext run --source-dir dist-firefox",
+    "ff:android": "web-ext run --source-dir dist-firefox --target firefox-android",
+    "ff:lint": "addons-linter dist-firefox"
   },
   "dependencies": {
     "@noble/hashes": "^1.5.0",

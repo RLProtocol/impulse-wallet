@@ -15,7 +15,9 @@ import { addToken, untrackIfEmpty } from "./lib/tokens";
 import * as fomo from "./lib/fomo";
 import * as callouts from "./lib/callouts";
 import { traderForX } from "./lib/trader";
-import { CHAINS, CHAIN_LIST, cfgFor, chainByDexId, clientFor, type ChainKey } from "./lib/chains";
+import * as impulse from "./lib/impulse";
+import * as copyd from "./lib/copyd";
+import { CHAINS, CHAIN_LIST, cfgFor, chainByDexId, clientFor, isChainKey, type ChainKey } from "./lib/chains";
 import { resolveTokenChain } from "./lib/dexcore";
 import * as sol from "./lib/solana";
 import { solRpc } from "./lib/solana";
@@ -389,8 +391,47 @@ async function fetchCandles(pool: string, ca: string, tf: string, chain: ChainKe
   return out;
 }
 
+// A DexScreener / DexTools / GeckoTerminal URL routes by *pool*, not token: the
+// address in /<chain>/<pairAddress> is the liquidity pair, not the contract you
+// buy. Resolve the pool to its base token so the buy dock has a real token to
+// trade. On Robinhood Chain the pool id is a 64-hex V4 poolId; on ETH/Base it's
+// a 40-hex pair contract — either way DexScreener's API maps it to baseToken.
+const pairTokenCache = new Map<string, { t: number; v: { ca: string | null; chain: ChainKey | null } }>();
+async function resolvePairToken(pair: string, chainHint: ChainKey | null): Promise<{ ca: string | null; chain: ChainKey | null }> {
+  const key = pair.toLowerCase();
+  const c = pairTokenCache.get(key);
+  if (c && Date.now() - c.t < 10 * 60_000) return c.v;
+  let v: { ca: string | null; chain: ChainKey | null } = { ca: null, chain: chainHint };
+  try {
+    const urls: string[] = [];
+    // The chain-scoped endpoint is exact; search is the fallback when we don't
+    // know the chain (or the scoped lookup misses).
+    if (chainHint) urls.push(`https://api.dexscreener.com/latest/dex/pairs/${cfgFor(chainHint).dexscreener}/${encodeURIComponent(pair)}`);
+    urls.push(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(pair)}`);
+    for (const url of urls) {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const list: any[] = Array.isArray(j?.pairs) ? j.pairs : (j?.pair ? [j.pair] : []);
+      // Prefer the row whose pool address is the one we asked about; else first.
+      const p = list.find((x) => String(x?.pairAddress || "").toLowerCase() === key) || list[0];
+      if (p?.baseToken?.address) {
+        v = { ca: String(p.baseToken.address), chain: chainByDexId(p.chainId)?.key || chainHint };
+        break;
+      }
+    }
+  } catch { /* offline */ }
+  pairTokenCache.set(key, { t: Date.now(), v });
+  return v;
+}
+
 async function handle(msg: any): Promise<any> {
   switch (msg?.type) {
+    case "STRIX_PAIRTOKEN": {
+      // Resolve a DexScreener-style pool URL to the token it trades.
+      const chainHint: ChainKey | null = isChainKey(msg.chain) ? msg.chain : null;
+      return await resolvePairToken(String(msg.pair || ""), chainHint);
+    }
     case "STRIX_TICKER": {
       const hit = await resolveTicker(String(msg.symbol || ""));
       return { address: hit?.address || null, chain: hit?.chain || null };
@@ -403,6 +444,36 @@ async function handle(msg: any): Promise<any> {
       await openWallet("index.html");
       return { ok: true };
     }
+    case "STRIX_OPEN_COPY": {
+      // Deep-link into the Copytrade screen with a handle prefilled (from the
+      // overlay "Follow" button).
+      await openWallet(`index.html?copy=${encodeURIComponent(String(msg.handle || "").replace(/^@/, ""))}`);
+      return { ok: true };
+    }
+    // ── copytrade (copyd) ───────────────────────────────────────────────────
+    case "STRIX_COPY_RESOLVE":
+      return await copyd.resolveHandle(String(msg.handle || ""));
+    case "STRIX_COPY_CREATE":
+      return await copyd.createJob(msg.body || {});
+    case "STRIX_COPY_LIST":
+      return await copyd.listJobs(String(msg.owner || ""));
+    case "STRIX_COPY_GET":
+      return await copyd.getJob(String(msg.id || ""));
+    case "STRIX_COPY_STOP":
+      return await copyd.stopJob(String(msg.id || ""));
+    case "STRIX_COPY_MODE":
+      return await copyd.setMode(String(msg.id || ""), !!msg.copySells);
+    // wallet-level (the one reusable per-user copy wallet)
+    case "STRIX_COPY_WALLET":
+      return await copyd.getWallet(String(msg.owner || ""));
+    case "STRIX_COPY_REVEAL":
+      return await copyd.revealWallet(String(msg.owner || ""));
+    case "STRIX_COPY_SELL":
+      return await copyd.sellWallet(String(msg.owner || ""), msg.body || {});
+    case "STRIX_COPY_WITHDRAW":
+      return await copyd.withdrawWallet(String(msg.owner || ""));
+    case "STRIX_COPY_EXPORT":
+      return await copyd.exportWallet(String(msg.owner || ""), String(msg.password || ""));
     case "STRIX_TOKEN": {
       // The panel may not know the chain yet (raw CA pasted into a page), so
       // resolve it here and hand it back for every follow-up call.
@@ -447,7 +518,8 @@ async function handle(msg: any): Promise<any> {
       // panel shows five at a time, so fetching all two hundred would spend the
       // rate limit on rows nobody scrolls to.
       if ("items" in page && page.items.length) {
-        await fomo.withAvatars(page.items.slice(0, 10));
+        // Inline every author avatar (deduped by URL), so paged rows are never blank.
+        await fomo.withAvatars(page.items);
       }
       return page;
     }
@@ -482,12 +554,74 @@ async function handle(msg: any): Promise<any> {
       for (const r of rows) if (r.avatar) out[r.avatarUrl] = r.avatar;
       return { avatars: out };
     }
+    // ── Impulse Thesis (our own community feed) ────────────────────────────
+    // The author is the active wallet's EVM address — attached here, never taken
+    // from the page. The holder-gate is trusted from the panel (which only shows
+    // Write to a holder) and the amount held rides along with the thesis.
+    case "STRIX_ITHESIS_LIST": {
+      const acct = await activeAccount().catch(() => undefined);
+      return await impulse.listTheses(String(msg.ca || ""), msg.chain ? String(msg.chain) : undefined, acct?.address || "");
+    }
+    case "STRIX_ITHESIS_PROFILE": {
+      const acct = await activeAccount().catch(() => undefined);
+      if (!acct?.address) return { wallet: null, profile: null };
+      const r = await impulse.getProfile(acct.address);
+      return { wallet: acct.address, profile: "v" in r ? r.v : null };
+    }
+    case "STRIX_ITHESIS_SETPROFILE": {
+      const acct = await activeAccount().catch(() => undefined);
+      if (!acct?.address) return { error: "No wallet — create or unlock one first." };
+      return await impulse.setProfile(acct.address, String(msg.username || ""), msg.dp ?? null);
+    }
+    case "STRIX_ITHESIS_WRITE": {
+      const acct = await activeAccount().catch(() => undefined);
+      if (!acct?.address) return { error: "No wallet — create or unlock one first." };
+      const holdingAmount = Number(msg.holdingAmount) || 0;
+      if (holdingAmount <= 0) return { error: "You must hold the token to write a thesis." };
+      return await impulse.writeThesis({
+        wallet: acct.address,
+        tokenAddress: String(msg.ca || ""),
+        chain: String(msg.chain || ""),
+        text: String(msg.text || ""),
+        holdingAmount,
+        holdingUsd: Number(msg.holdingUsd) || null,
+      });
+    }
+
+    case "STRIX_ISTATS":
+      return await impulse.stats(String(msg.ca || ""));
+    case "STRIX_ITRACK":
+      return await impulse.track(String(msg.ca || ""), msg.kind === "open" ? "open" : "seen");
+    case "STRIX_ILOG": {
+      // A completed trade, logged for the profit leaderboard. Author = the
+      // active wallet, attached here; the panel supplies size + price.
+      const acct = await activeAccount().catch(() => undefined);
+      if (!acct?.address) return { ok: false };
+      return await impulse.logTrade({
+        wallet: acct.address,
+        ca: String(msg.ca || ""),
+        chain: String(msg.chain || ""),
+        symbol: String(msg.symbol || ""),
+        side: msg.side === "sell" ? "sell" : "buy",
+        tokenAmount: Number(msg.tokenAmount) || 0,
+        priceUsd: Number(msg.priceUsd) || 0,
+        usdValue: Number(msg.usdValue) || 0,
+      });
+    }
+    case "STRIX_ILEADERBOARD":
+      return await impulse.leaderboard(String(msg.window || "all"));
+
+    case "STRIX_ITRENDING":
+      return await impulse.trending();
+
     case "STRIX_TRADER": {
       // X handle -> trading profile on FOMO and pump.fun. Proxied because both
       // hosts refuse a cross-origin call from the page.
       const h = String(msg.handle || "").replace(/^@/, "");
       if (!/^[A-Za-z0-9_]{1,15}$/.test(h)) return null;
-      return await traderForX(h);
+      // `deep` is only set when the user actually opens the panel. The check
+      // that decides whether to show the button stays on the cheap path.
+      return await traderForX(h, Boolean(msg.deep));
     }
     case "STRIX_QUOTE": {
       // A dry run of the buy: what you would receive, and whether the trade

@@ -96,12 +96,13 @@ import {
   Search as IconSearch,
   ShieldCheck as IconShield,
   CandlestickChart as IconCandle,
+  Trophy as IconTrophy,
 } from "lucide-react";
 
 export {
   IconHome, IconChart, IconStock, IconGear, IconSend, IconReceive, IconPlus,
   IconBack, IconCopy, IconExt, IconEye, IconSwap, IconChevronDown, IconSearch, IconShield,
-  IconCandle,
+  IconCandle, IconTrophy,
 };
 
 export function Copyable({ text, children }: { text: string; children?: React.ReactNode }) {
