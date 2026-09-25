@@ -154,6 +154,13 @@ const PUMP_MARK_SM = `<img src="${chrome.runtime.getURL("icons/pumpfun.png")}" w
 const LOGO_LG = `<img src="${chrome.runtime.getURL("icons/mascot.png")}" width="34" height="34" style="border-radius:14px;display:block" alt=""/>`;
 const BUBBLES = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="9" r="4.5"/><circle cx="17" cy="7" r="2.5"/><circle cx="15.5" cy="16.5" r="3.5"/><path d="M11.5 11.8 13 14"/><path d="M12.3 8.2 14.6 7.6"/></svg>`;
 
+// Premium duotone icons for the overlay strip (currentColor drives both the
+// solid accent and the low-opacity fill, so they read crisp at 22px).
+const IC_CHART = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M3 17.5 9 11l4 3.5L21 6" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 17.5 9 11l4 3.5L21 6V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" fill="currentColor" opacity=".16"/><circle cx="21" cy="6" r="2" fill="currentColor"/></svg>`;
+const IC_HOLDERS = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><circle cx="9" cy="8" r="3.4" fill="currentColor" opacity=".18"/><circle cx="9" cy="8" r="3.4" stroke="currentColor" stroke-width="1.9"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M16 5.2A3.2 3.2 0 0 1 16 11m1.4 3.3c2.2.5 3.9 2.3 3.9 4.7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
+const IC_NEW = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><circle cx="10" cy="8" r="3.4" fill="currentColor" opacity=".18"/><circle cx="10" cy="8" r="3.4" stroke="currentColor" stroke-width="1.9"/><path d="M4 19c0-3.1 2.7-5.2 6-5.2 1 0 2 .2 2.8.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M18.5 13.5v5M16 16h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+const IC_BUBBLES = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><circle cx="8.5" cy="10" r="5" fill="currentColor" opacity=".18"/><circle cx="8.5" cy="10" r="5" stroke="currentColor" stroke-width="1.9"/><circle cx="17.5" cy="7" r="2.6" fill="currentColor" opacity=".3"/><circle cx="17.5" cy="7" r="2.6" stroke="currentColor" stroke-width="1.7"/><circle cx="16.5" cy="16.5" r="3.4" fill="currentColor" opacity=".24"/><circle cx="16.5" cy="16.5" r="3.4" stroke="currentColor" stroke-width="1.8"/></svg>`;
+
 // ── GMGN helpers (safety checks, holder tags) ───────────────────────────────
 const gPick = (obj: any, keys: string[]): any => {
   for (const k of keys) {
@@ -362,6 +369,52 @@ const STYLES = `
   .pill:focus-visible{outline:2px solid #b6f03c;outline-offset:2px}
   .pill svg{opacity:.9}
 
+  /* Buy pill + the "who holds this" thesis avatars, one row with a gap. */
+  .pillrow{display:flex;align-items:center;gap:14px;margin-top:8px;flex-wrap:wrap}
+  .pillrow .pill{margin-top:0}
+  /* Avatar cluster: the top thesis authors on this token, lightly overlapped. */
+  .tstrip{display:inline-flex;align-items:center;padding-left:2px}
+  .tstrip.empty{display:none}
+  /* Scoped under .tstrip — there is ANOTHER .tav (24px, the drawer author avatar)
+     later in this stylesheet; without the scope it would override these. */
+  .tstrip .tav{position:relative;width:48px;height:48px;border-radius:50%;margin-left:-14px;
+    border:2.5px solid #0a0d07;background:#141810;overflow:visible;flex:0 0 auto;
+    transition:transform .12s;cursor:default}
+  .tstrip .tav:first-child{margin-left:0}
+  .tstrip .tav:hover{transform:translateY(-2px) scale(1.1);z-index:5}
+  .tstrip .tav img,.tstrip .tav .tavfb{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+  .tstrip .tav .tavfb{display:flex;align-items:center;justify-content:center;
+    font:700 18px "ImpulseSans",sans-serif;color:#0a1005;background:#b6f03c}
+  /* pump.fun / FOMO toggle — SAME size as the avatars, set off by a small gap */
+  .tstrip .tavtoggle{position:relative;width:48px;height:48px;border-radius:50%;margin-left:12px;
+    align-self:center;border:2.5px solid #0a0d07;background:#12160c;display:flex;align-items:center;
+    justify-content:center;cursor:pointer;flex:0 0 auto;padding:0;transition:transform .12s,background .12s,box-shadow .12s}
+  .tstrip .tavtoggle:hover{transform:translateY(-2px);background:#1a2010;z-index:6}
+  .tstrip .tavtoggle.on{background:#171c0f;box-shadow:0 0 0 2px rgba(182,240,60,.4) inset}
+  .tstrip .tavtoggle img{width:28px;height:28px;border-radius:8px;display:block}
+  /* Tool icons (chart / holders / new / bubbles) — a tight group after the toggle */
+  .tstrip .tavtool{color:#b6f03c;margin-left:7px}
+  .tstrip .tavtool:hover{color:#d4ff5e;background:#1a2010}
+  .tstrip .tavtool svg{width:22px;height:22px;display:block}
+  .tstrip .tavnote{align-self:center;margin:0 4px 0 6px;
+    font:600 13px "ImpulseSans",-apple-system,sans-serif;color:#8a927e;white-space:nowrap}
+  .tav .tavmore{background:#171c0f;color:#b6f03c;font-size:9.5px}
+  /* Hover card: their thesis + how much they hold. */
+  .ttip{position:absolute;bottom:135%;left:50%;transform:translateX(-50%) translateY(4px);
+    width:230px;padding:9px 11px;border-radius:12px;background:#0a0d07;border:1px solid #20261a;
+    box-shadow:0 16px 40px -14px rgba(0,0,0,.9);opacity:0;pointer-events:none;
+    transition:opacity .12s,transform .12s;z-index:2147483000}
+  .tav:hover .ttip{opacity:1;transform:translateX(-50%) translateY(0)}
+  .ttip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#0a0d07}
+  .ttip .tth{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+  .ttip .ttname{font:600 12px "ImpulseSans",sans-serif;color:#f3f7ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ttip .tthold{font:700 11px "ImpulseMono",monospace;color:#b6f03c;white-space:nowrap;flex:0 0 auto}
+  .ttip .tthold.dn{color:#ff6b6b}
+  .ttip .ttbody{font:400 11.5px/1.45 "ImpulseSans",sans-serif;color:#c7cebb;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  .ttip .ttempty{font:400 11.5px "ImpulseSans",sans-serif;color:#8a927e;font-style:italic}
+
   .panel{margin-top:9px;width:100%;max-width:436px;border-radius:24px;overflow:hidden;color:#ffffff;
 
     background:linear-gradient(180deg,#101c13,#0a110c);border:1px solid #223528;
@@ -561,6 +614,90 @@ const STYLES = `
   .drawer .hchain{position:relative;flex:0 0 auto;font-size:8.5px;font-weight:600;
     letter-spacing:.06em;text-transform:uppercase;padding:2px 5px;border-radius:6px;
     background:var(--surface);border:1px solid var(--line);color:var(--faint)}
+  /* Chain badge as a logo (positions & history) instead of a text abbreviation. */
+  .drawer .hchainlogo{position:relative;flex:0 0 auto;display:inline-flex;align-items:center;
+    margin-right:2px;opacity:.95}
+  .drawer .hchainlogo img{box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+  /* ── Timeline ticker scan — its own polished layout ─────────────────────── */
+  .scanpop{width:min(420px,94vw)}
+  .drawer .ssum{display:grid;grid-template-columns:repeat(3,1fr);margin:12px 14px 4px;
+    border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--surface)}
+  .drawer .ssumcell{padding:11px 12px;text-align:center;border-right:1px solid var(--line)}
+  .drawer .ssumcell:last-child{border-right:0}
+  .drawer .ssumcell b{display:block;font:700 23px "ImpulseMono",ui-monospace,monospace;color:var(--text);
+    font-variant-numeric:tabular-nums;line-height:1.1}
+  .drawer .ssumcell b.ac{color:var(--accent)}
+  .drawer .ssumcell span{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .drawer .scap{margin:16px 16px 9px;font-size:10.5px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--faint)}
+  .drawer .slist{display:flex;flex-direction:column;margin:0 12px}
+  .drawer .sgroup{position:relative;border-radius:13px;overflow:hidden;background:#0e130a;
+    border:1px solid #1e2712;transition:border-color .12s}
+  .drawer .sgroup + .sgroup{margin-top:8px}
+  .drawer .sgroup:hover{border-color:#33421d}
+  .drawer .sgroup.top{background:linear-gradient(92deg,rgba(182,240,60,.06),transparent 62%),#0e130a;border-color:#2c3a17}
+  .drawer .srow{position:relative;display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:pointer;isolation:isolate}
+  .drawer .sfill{position:absolute;inset:0 auto 0 0;z-index:-1;
+    background:linear-gradient(90deg,rgba(182,240,60,.13),transparent 82%);opacity:.9}
+  .drawer .sfill.dim{background:linear-gradient(90deg,rgba(143,179,255,.12),transparent 82%)}
+  .drawer .srank{flex:0 0 auto;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+    font:700 10px "ImpulseMono",ui-monospace,monospace;color:var(--faint);
+    background:var(--surface2);border:1px solid var(--line)}
+  .drawer .sgroup.top .srank{color:#0a1005;background:var(--accent);border-color:var(--accent)}
+  .drawer .slogo{flex:0 0 auto;width:32px;height:32px;border-radius:50%;overflow:hidden;display:block;
+    background:#141810;border:1px solid #232b36}
+  .drawer .slogo img{width:100%;height:100%;object-fit:cover;display:block}
+  .drawer .sfb{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    font:800 12px "ImpulseSans",-apple-system,sans-serif}
+  .drawer .sopen{position:relative;z-index:1;display:flex;align-items:center;gap:10px;flex:1;min-width:0;
+    text-decoration:none;color:inherit;border-radius:8px}
+  .drawer a.sopen{cursor:pointer}
+  .drawer a.sopen:hover .ssym{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+  .drawer .smeta{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .drawer .ssym{min-width:0;font:700 16px "ImpulseSans",-apple-system,sans-serif;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+  .drawer .ssym.mono{font-family:"ImpulseMono",ui-monospace,monospace;font-size:13.5px;color:var(--muted)}
+  .drawer .smc{font:600 11.5px "ImpulseMono",ui-monospace,monospace;color:var(--faint);
+    white-space:nowrap;font-variant-numeric:tabular-nums;min-height:13px}
+  .drawer .smc b{color:var(--muted);font-weight:700}
+  .drawer .scount{flex:0 0 auto;font:700 15.5px "ImpulseMono",ui-monospace,monospace;color:var(--text);
+    font-variant-numeric:tabular-nums}
+  .drawer .scount i{font-style:normal;font-size:11px;color:var(--faint);margin-left:1px}
+  .drawer .sbuy{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;padding:5px 12px;border-radius:999px;
+    background:var(--accent);color:#0a1005;font:700 12px "ImpulseSans",sans-serif;
+    opacity:0;transform:translateX(4px);transition:opacity .12s,transform .12s;pointer-events:none}
+  .drawer .sgroup:hover .sbuy{opacity:1;transform:none}
+  .drawer .sbuy .sgo{font-size:10px}
+  .drawer .srow.resolving{opacity:.6}
+  .drawer .srow.resolving .sbuy{opacity:1;transform:none}
+  .drawer .srow.resolving .scount{visibility:hidden}
+  .drawer .srow.scanna{opacity:.42}
+  .drawer .srow.scanna .scount{color:var(--down)}
+  .drawer .srow.scanna .sbuy{display:none}
+  .drawer .sempty{padding:44px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px}
+  .drawer .sempty .semoji{font-size:34px;opacity:.7;margin-bottom:2px}
+  .drawer .sempty b{font-size:17px;font-weight:700;color:var(--text)}
+  .drawer .sempty span{font-size:13px;color:var(--faint)}
+  /* Scanning progress view. */
+  .drawer .sprog{padding:30px 20px 34px;display:flex;flex-direction:column;align-items:center;gap:20px}
+  .drawer .sprogbar{width:100%;height:5px;border-radius:99px;background:var(--surface);overflow:hidden;position:relative}
+  .drawer .sprogbar span{position:absolute;top:0;bottom:0;width:38%;border-radius:99px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:sprogslide 1.15s ease-in-out infinite}
+  @keyframes sprogslide{0%{left:-40%}100%{left:100%}}
+  .drawer .sprognums{display:flex;gap:34px}
+  .drawer .spn{text-align:center}
+  .drawer .spn b{display:block;font:700 34px "ImpulseMono",ui-monospace,monospace;color:var(--text);
+    font-variant-numeric:tabular-nums;line-height:1}
+  .drawer .spn b.ac{color:var(--accent)}
+  .drawer .spn span{display:block;margin-top:6px;font-size:11px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted)}
+  .drawer .sprognote{font-size:13px;color:var(--faint)}
+  /* FOMO thesis avatars, inside the card and indented under the ticker. */
+  .drawer .rfomo{padding:0 13px 11px 48px;display:flex;align-items:center;min-height:0}
+  .drawer .rfomo .tstrip{display:inline-flex;align-items:center}
+  .drawer .rfomo .tstrip .tav{width:28px;height:28px;margin-left:-9px;border-width:2px}
+  .drawer .rfomo .tstrip .tav:first-child{margin-left:0}
+  .drawer .rfomo .tstrip .tav .tavfb{font-size:11px}
   .drawer .tpfol{flex:0 0 auto;text-align:right;margin-right:2px}
   .drawer .tpfol b{display:block;font-size:14px;font-weight:600;color:var(--text);
     font-family:"ImpulseMono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
@@ -634,6 +771,48 @@ const STYLES = `
   .drawer .tstatus.open{color:var(--accent);border-color:rgba(198,242,74,.3)}
   .drawer .tstatus.up{color:var(--up);border-color:rgba(140,224,74,.32)}
   .drawer .tstatus.dn{color:var(--down);border-color:rgba(246,70,93,.3)}
+
+  /* Round token thumbnail on each holding row. */
+  .drawer .htokimg{position:relative;width:24px;height:24px;border-radius:50%;flex:0 0 auto;
+    object-fit:cover;background:#141810;border:1px solid #232b36}
+  .drawer .htokfb{position:relative;width:24px;height:24px;border-radius:50%;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font:800 10.5px "ImpulseSans",sans-serif}
+
+  /* Source switch (FOMO / pump.fun), shown when both platforms know the handle. */
+  .drawer .tsrcseg{display:flex;gap:6px;margin:0 14px 12px;padding:4px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px}
+  .drawer .tsrcseg button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+    padding:8px 10px;border:0;border-radius:9px;background:transparent;cursor:pointer;
+    font-size:12.5px;font-weight:700;color:var(--muted);transition:background .12s,color .12s}
+  .drawer .tsrcseg button:hover{color:var(--text)}
+  .drawer .tsrcseg button.on{background:var(--surface2);color:var(--text);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+  .drawer .tsrcseg button img{width:15px;height:15px;border-radius:5px;display:block}
+
+  .drawer .tpbio{margin:2px 14px 12px;font-size:12.5px;line-height:1.5;color:var(--muted);white-space:pre-line}
+  /* Biggest-wins strip: a horizontal, scrollable row of the trader's top trades. */
+  .drawer .ttlabel{margin:2px 14px 7px;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint)}
+  .drawer .ttrades{display:flex;gap:8px;overflow-x:auto;padding:0 14px 12px;
+    scrollbar-width:thin;scrollbar-color:#2b3542 transparent;-webkit-overflow-scrolling:touch}
+  .drawer .ttrades::-webkit-scrollbar{height:6px}
+  .drawer .ttrades::-webkit-scrollbar-thumb{background:#2b3542;border-radius:6px}
+  .drawer .ttcard{flex:0 0 auto;width:118px;padding:9px 10px;border-radius:12px;
+    background:var(--surface);border:1px solid var(--line)}
+  .drawer .ttcard .tthd{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:7px}
+  .drawer .ttcard .ttrow{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .drawer .ttcard .ttrow .htokimg,.drawer .ttcard .ttrow .htokfb{width:20px;height:20px}
+  .drawer .ttcard .ttsym{font-size:12px;font-weight:700;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .drawer .ttcard .ttfoot{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .drawer .ttcard .ttpnl{font:700 13px "ImpulseMono",ui-monospace,monospace;color:var(--up);
+    font-variant-numeric:tabular-nums}
+  .drawer .ttcard .ttpct{font:700 10px "ImpulseMono",ui-monospace,monospace;color:var(--up)}
+  .drawer .tpext{display:flex;align-items:center;gap:9px;padding:11px 14px;text-decoration:none;
+    font-size:13px;font-weight:700;color:var(--text)}
+  .drawer .tpext:hover{background:rgba(255,255,255,.05)}
+  .drawer .tpext img{width:16px;height:16px;border-radius:6px;display:block}
+  .drawer .tpext .hgo2{margin-left:auto;color:var(--faint);font-size:12px}
 
   .drawer .liveh{display:flex;align-items:center;gap:6px;padding:8px 14px;
     border-bottom:1px solid var(--line);font-size:9.5px;font-weight:600;
@@ -1499,7 +1678,8 @@ function trackImpulse(ca: string, kind: "seen" | "open") {
   } catch { /* worker asleep / context gone — a popularity tick is not worth a retry */ }
 }
 
-function openDrawer(ca: string, viaCashtag: boolean, chainHint: string | null) {
+type DrawerOpts = { view?: string; holdTab?: string };
+function openDrawer(ca: string, viaCashtag: boolean, chainHint: string | null, opts?: DrawerOpts) {
   trackImpulse(ca, "open");
   // Clicking the same token again closes it; a different token swaps content.
   if (drawerRoot && drawerCa === ca) { closeDrawer(); return; }
@@ -1525,7 +1705,7 @@ function openDrawer(ca: string, viaCashtag: boolean, chainHint: string | null) {
 
   drawerRoot = host;
   drawerCa = ca;
-  runPanel(ca, drawer, viaCashtag, chainHint);
+  runPanel(ca, drawer, viaCashtag, chainHint, opts);
 
   // Escape closes, the way every drawer does.
   const onKey = (e: KeyboardEvent) => {
@@ -1568,16 +1748,541 @@ function mountHost(ca: string, afterEl: Element, pillLabel = "Trade on Impulse",
       r.width && r.height ? "" : "  <= ZERO SIZE");
   }
 
+  const rowEl = document.createElement("div");
+  rowEl.className = "pillrow";
+  root.appendChild(rowEl);
+
   const pill = document.createElement("button");
   pill.className = "pill";
   pill.innerHTML = `${LOGO}<span>${pillLabel}</span>`;
-  root.appendChild(pill);
+  rowEl.appendChild(pill);
 
   pill.addEventListener("click", (ev) => {
     if (!ev.isTrusted) return;
     openDrawer(ca, viaCashtag, chainHint);
   });
+
+  // The "who holds this" cluster: circular avatars of the top FOMO thesis authors
+  // on this token, hover for their thesis + position. Lazy (only when the pill is
+  // visible) and deduped per token, so a busy feed never bursts FOMO calls.
+  if (FOMO_ENABLED) {
+    const strip = document.createElement("div");
+    strip.className = "tstrip empty";
+    rowEl.appendChild(strip);
+    observeOnce(host, () => loadThesisStrip(ca, chainHint, strip));
+  }
 }
+
+// Fire `cb` once, when `el` first scrolls into view (falls back to immediate).
+function observeOnce(el: Element, cb: () => void) {
+  try {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { io.disconnect(); cb(); }
+    }, { rootMargin: "150px" });
+    io.observe(el);
+  } catch { cb(); }
+}
+
+// Shared per-token fetches (dedup across every pill for the same CA on a page).
+const thesisStripCache = new Map<string, Promise<any[]>>();
+const calloutStripCache = new Map<string, Promise<any[]>>();
+
+function cachedFomoTop(key: string, ca: string, chainHint: string | null): Promise<any[]> {
+  let p = thesisStripCache.get(key);
+  if (!p) {
+    p = send({ type: "STRIX_FOMO_TOP", ca, chain: chainHint || tokenChains.get(key) || null, n: 5 })
+      .then((r: any) => (r && Array.isArray(r.items)) ? r.items : []).catch(() => []);
+    thesisStripCache.set(key, p);
+  }
+  return p;
+}
+function cachedCallouts(key: string, ca: string): Promise<any[]> {
+  let p = calloutStripCache.get(key);
+  if (!p) {
+    p = send({ type: "STRIX_CALLOUTS", ca })
+      .then((r: any) => (r && Array.isArray(r.items)) ? r.items : []).catch(() => []);
+    calloutStripCache.set(key, p);
+  }
+  return p;
+}
+
+type StripState = { mode: "fomo" | "pump"; fomo?: any[]; calls?: any[] };
+
+// The strip: top FOMO thesis authors, plus a pump.fun logo that toggles the
+// cluster to the top pump.fun callouts for the same token. Lazy + cached.
+function loadThesisStrip(ca: string, chainHint: string | null, strip: HTMLElement) {
+  const key = ca.toLowerCase();
+  const st: StripState = { mode: "fomo" };
+  let callsReq = false;
+  const draw = () => renderStrip(strip, st, toggle, ca, chainHint);
+  function toggle() {
+    if (st.mode === "fomo") {
+      st.mode = "pump";
+      if (!callsReq) { callsReq = true; cachedCallouts(key, ca).then((items) => { st.calls = items; if (st.mode === "pump") draw(); }); }
+    } else {
+      st.mode = "fomo";
+    }
+    draw();
+  }
+  cachedFomoTop(key, ca, chainHint).then((items) => { st.fomo = items; draw(); });
+  draw();
+}
+
+// One tooltip card (used by both FOMO theses and pump.fun callouts).
+function tipCardHtml(avatar: string | null, whoRaw: string, meta: string, metaCls: string, body: string, nameForInitial: string): string {
+  const who = esc(whoRaw);
+  const initial = esc((String(nameForInitial || whoRaw).replace(/^@/, "")[0] || "?").toUpperCase());
+  const av = avatar ? `<img class="ttav" src="${esc(String(avatar))}" alt="">` : `<span class="ttavfb">${initial}</span>`;
+  const bodyHtml = body ? `<div class="ttbody">${esc(String(body))}</div>` : `<div class="ttempty">No text</div>`;
+  return `<div class="ttcard"><div class="tthead">${av}<span class="ttname">${who}</span>` +
+    `<span class="${metaCls}">${esc(meta)}</span></div>${bodyHtml}</div>`;
+}
+
+// A circular avatar with a hover card. FOMO shows "holds $X" + thesis; pump.fun
+// shows "called $Xmc · Nx" + the callout text.
+function buildAvatar(t: any, mode: "fomo" | "pump"): HTMLElement {
+  const av = document.createElement("div");
+  av.className = "tav";
+  const handle = String(t.authorHandle || t.handle || t.xHandle || "");
+  const name = String(t.authorName || t.handle || handle || "trader");
+  if (t.avatar) { const img = document.createElement("img"); img.src = t.avatar; img.alt = ""; av.appendChild(img); }
+  else { const fb = document.createElement("span"); fb.className = "tavfb"; fb.textContent = (name[0] || "?").toUpperCase(); av.appendChild(fb); }
+  const whoRaw = handle ? "@" + handle : name;
+  let html: string;
+  if (mode === "pump") {
+    const mc = Number(t.calledAtMcap);
+    const mult = Number(t.multiple);
+    const parts: string[] = [];
+    if (mc > 0) parts.push("called " + fmtCompact(mc));
+    if (mult > 0) parts.push((mult >= 10 ? mult.toFixed(0) : mult.toFixed(1)) + "x");
+    const metaCls = mult > 0 && mult < 1 ? "tthold dn" : "tthold";
+    html = tipCardHtml(t.avatar, whoRaw, parts.join(" · ") || "call", metaCls, t.text, name);
+  } else {
+    const pos = Number(t.positionUsd);
+    const kind = t.positionKind === "traded" ? "traded" : "holds";
+    const meta = pos > 0 ? `${kind} ${fmtCompact(pos)}` : "position n/a";
+    const pnl = Number(t.pnlPct);
+    const metaCls = isFinite(pnl) && pnl < 0 ? "tthold dn" : "tthold";
+    html = tipCardHtml(t.avatar, whoRaw, meta, metaCls, t.thesis, name);
+  }
+  av.addEventListener("mouseenter", () => showTip(av.getBoundingClientRect(), html));
+  av.addEventListener("mouseleave", hideTip);
+  return av;
+}
+
+function renderStrip(strip: HTMLElement, st: StripState, toggle: () => void, ca: string, chain: string | null) {
+  const fomo = st.fomo;
+  if (fomo === undefined) return;                                   // still loading — stay hidden
+  if (fomo.length === 0) { strip.className = "tstrip empty"; strip.innerHTML = ""; return; }
+
+  strip.innerHTML = "";
+  if (st.mode === "fomo") {
+    for (const t of fomo.slice(0, 5)) strip.appendChild(buildAvatar(t, "fomo"));
+  } else if (st.calls === undefined) {
+    const n = document.createElement("span"); n.className = "tavnote"; n.textContent = "loading callouts…"; strip.appendChild(n);
+  } else if (st.calls.length === 0) {
+    const n = document.createElement("span"); n.className = "tavnote"; n.textContent = "no pump.fun callouts"; strip.appendChild(n);
+  } else {
+    for (const t of st.calls.slice(0, 5)) strip.appendChild(buildAvatar(t, "pump"));
+  }
+
+  if (CALLOUTS_ENABLED) {
+    const btn = document.createElement("button");
+    btn.className = "tavtoggle" + (st.mode === "pump" ? " on" : "");
+    btn.innerHTML = st.mode === "fomo" ? PUMP_MARK : LOGO;
+    btn.title = st.mode === "fomo" ? "Show pump.fun callouts" : "Back to FOMO theses";
+    btn.addEventListener("click", (e) => { if (!e.isTrusted) return; e.stopPropagation(); toggle(); });
+    strip.appendChild(btn);
+  }
+
+  // Quick-access tools, each its own premium icon. Chart opens a page overlay;
+  // holders / new holders / bubble map open the drawer straight to that view.
+  const sym = String((fomo[0]?.tokenSymbol || fomo[0]?.symbol || "")).replace(/^\$/, "");
+  const logo = fomo[0]?.tokenLogo || null;
+  const tool = (icon: string, title: string, onClick: () => void) => {
+    const b = document.createElement("button");
+    b.className = "tavtoggle tavtool";
+    b.innerHTML = icon;
+    b.title = title;
+    b.addEventListener("click", (e) => { if (!e.isTrusted) return; e.stopPropagation(); onClick(); });
+    strip.appendChild(b);
+  };
+  tool(IC_CHART, "Price chart", () => openChartPop(ca, chain, sym, logo));
+  tool(IC_HOLDERS, "Top holders, smart money & KOLs", () => openHoldersPop(ca, chain, sym, logo, "holders"));
+  tool(IC_NEW, "Newest holders", () => openHoldersPop(ca, chain, sym, logo, "new"));
+  tool(IC_BUBBLES, "Holder bubble map", () => openBubblesPop(ca, sym, logo));
+
+  strip.className = "tstrip";
+}
+
+// The hover card is rendered at document.body level (its own shadow) with fixed
+// positioning, so X's overflow/containment on the tweet can never clip it.
+const TIP_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:400;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-400.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  .ttcard{width:100%;box-sizing:border-box;padding:11px 13px;border-radius:13px;background:#0a0d07;
+    border:1px solid #20261a;box-shadow:0 18px 44px -14px rgba(0,0,0,.92)}
+  .ttcard .tthead{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .ttcard .ttav{width:24px;height:24px;border-radius:50%;flex:0 0 auto;object-fit:cover;
+    border:1.5px solid #20261a;display:block}
+  .ttcard .ttavfb{width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;
+    align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0a1005;background:#b6f03c}
+  .ttcard .ttname{flex:1;min-width:0;font-size:13px;font-weight:600;color:#f3f7ec;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ttcard .tthold{font-family:"ImpulseMono",ui-monospace,monospace;font-size:11.5px;font-weight:700;
+    color:#b6f03c;white-space:nowrap;flex:0 0 auto}
+  .ttcard .tthold.dn{color:#ff6b6b}
+  .ttcard .ttbody{font-size:12.5px;line-height:1.5;color:#c7cebb;
+    display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+  .ttcard .ttempty{font-size:12.5px;color:#8a927e;font-style:italic}`;
+
+let _tip: { el: HTMLElement; root: HTMLElement } | null = null;
+function tipEl() {
+  if (_tip) return _tip;
+  const el = document.createElement("div");
+  el.style.cssText = "all:initial;position:fixed;z-index:2147483647;pointer-events:none;display:none;width:250px;";
+  const sh = el.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = TIP_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  document.body.appendChild(el);
+  _tip = { el, root };
+  return _tip;
+}
+function showTip(rect: DOMRect, html: string) {
+  const t = tipEl();
+  t.root.innerHTML = html;
+  t.el.style.display = "block";
+  const W = 250, gap = 10;
+  let left = rect.left + rect.width / 2 - W / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - W - 8));
+  t.el.style.left = `${left}px`;
+  const h = (t.root.firstElementChild as HTMLElement)?.offsetHeight || 90;
+  let top = rect.top - h - gap;
+  if (top < 8) top = rect.bottom + gap; // flip below if no room above
+  t.el.style.top = `${top}px`;
+}
+function hideTip() { if (_tip) _tip.el.style.display = "none"; }
+
+// ---- Chart popover -------------------------------------------------------
+// A full chart, opened from the avatar strip, as its own body-level modal (own
+// closed shadow, fixed backdrop) so X's overflow/containment can never clip it.
+// Closes on the ✕, on a backdrop click, or on Escape.
+const CHART_X = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const CHART_TFS = ["15m", "1H", "4H", "1D"];
+const CHART_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:400;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-400.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;box-sizing:border-box}
+  .cbackdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:rgba(4,6,3,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  .ccard{width:min(560px,94vw);background:#0a0d07;border:1px solid #20261a;border-radius:18px;
+    box-shadow:0 34px 90px -22px rgba(0,0,0,.96);overflow:hidden}
+  .chead{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid #171c11}
+  .chead .clogo{width:32px;height:32px;border-radius:10px;object-fit:cover;display:block;
+    background:#141810;border:1px solid #20261a;flex:0 0 auto}
+  .chead .ctitle{flex:1;min-width:0}
+  .chead .ctitle b{display:block;font-size:15.5px;font-weight:700;color:#f3f7ec;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chead .ctitle span{display:block;font:700 11px "ImpulseMono",ui-monospace,monospace;color:#8a927e;margin-top:1px}
+  .cclose{width:34px;height:34px;border-radius:10px;border:1px solid #20261a;background:#12160c;
+    color:#c7cebb;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;
+    padding:0;transition:background .12s,color .12s}
+  .cclose:hover{background:#1a2010;color:#f3f7ec}
+  .ctfs{display:flex;gap:6px;padding:12px 16px 2px}
+  .ctf{flex:0 0 auto;padding:5px 13px;border-radius:9px;border:1px solid #20261a;background:#12160c;
+    font:700 12px "ImpulseMono",ui-monospace,monospace;color:#8a927e;cursor:pointer;transition:all .12s}
+  .ctf:hover{color:#e7edda;border-color:#2a3320}
+  .ctf.on{background:#b6f03c;border-color:#b6f03c;color:#0a1005}
+  .cbody{padding:8px 12px 16px;min-height:250px;display:flex;align-items:center;justify-content:center}
+  .cbody svg{display:block}
+  .cnote{font:600 13px "ImpulseSans",-apple-system,sans-serif;color:#8a927e;
+    display:flex;align-items:center;gap:9px;text-align:center}
+  .cspin{width:15px;height:15px;border-radius:50%;border:2px solid #2a3320;border-top-color:#b6f03c;
+    animation:cspin .7s linear infinite;flex:0 0 auto}
+  @keyframes cspin{to{transform:rotate(360deg)}}`;
+
+let _chart: { el: HTMLElement; root: HTMLElement } | null = null;
+let _chartReq = 0;                          // bumped on every open/close — invalidates stale fetches
+function chartEl() {
+  if (_chart) return _chart;
+  const el = document.createElement("div");
+  el.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483646;display:none;";
+  const sh = el.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = CHART_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  document.body.appendChild(el);
+  _chart = { el, root };
+  return _chart;
+}
+function closeChartPop() {
+  _chartReq++;
+  if (_chart) { _chart.el.style.display = "none"; _chart.root.innerHTML = ""; }
+  document.removeEventListener("keydown", chartKey, true);
+}
+function chartKey(e: KeyboardEvent) { if (e.key === "Escape") { e.stopPropagation(); closeChartPop(); } }
+
+function openChartPop(ca: string, chain: string | null, symbol: string, logo?: string | null) {
+  const c = chartEl();
+  const my = ++_chartReq;                   // this open's token; a later open/close voids it
+  const cache: Record<string, Candle[] | null | undefined> = {};
+  let tf = "1H";
+  let pool: string | null = null;
+  let poolP: Promise<void> | null = null;
+  const ensurePool = () => {
+    if (!poolP) poolP = send({ type: "STRIX_PAIR", ca, chain }).then((pr) => { if (my === _chartReq) pool = pr?.pair || null; });
+    return poolP;
+  };
+
+  const shell = (bodyHtml: string) => {
+    if (my !== _chartReq) return;
+    c.root.innerHTML =
+      `<div class="cbackdrop"><div class="ccard">` +
+        `<div class="chead">` +
+          (logo ? `<img class="clogo" src="${esc(logo)}" alt="">` : `<div class="clogo"></div>`) +
+          `<div class="ctitle"><b>${esc(symbol || short(ca))}</b><span>${esc(short(ca))}</span></div>` +
+          `<button class="cclose" title="Close">${CHART_X}</button>` +
+        `</div>` +
+        `<div class="ctfs">${CHART_TFS.map((t) => `<button class="ctf${t === tf ? " on" : ""}" data-tf="${t}">${t}</button>`).join("")}</div>` +
+        `<div class="cbody">${bodyHtml}</div>` +
+      `</div></div>`;
+    const bd = c.root.querySelector(".cbackdrop") as HTMLElement;
+    bd.addEventListener("click", (e) => { if (e.target === bd) closeChartPop(); });
+    (c.root.querySelector(".cclose") as HTMLElement).addEventListener("click", (e) => { e.stopPropagation(); closeChartPop(); });
+    c.root.querySelectorAll(".ctf").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const nt = (b as HTMLElement).dataset.tf!;
+        if (nt !== tf) { tf = nt; draw(); }
+      }));
+  };
+
+  const draw = () => {
+    if (cache[tf] === undefined) { shell(`<div class="cnote"><span class="cspin"></span>Loading chart…</div>`); fetchTf(tf); return; }
+    const cs = cache[tf];
+    const svg = cs && cs.length >= 2 ? chartSvg(cs, tf, 250) : "";
+    shell(svg || `<div class="cnote">No chart data for this timeframe.</div>`);
+  };
+
+  const fetchTf = (which: string) => {
+    ensurePool().then(() => {
+      if (my !== _chartReq) return;
+      if (!pool) { cache[which] = null; if (which === tf) draw(); return; }
+      send({ type: "STRIX_CANDLES", pool, ca, tf: which, chain }).then((r) => {
+        if (my !== _chartReq) return;
+        cache[which] = Array.isArray(r?.candles) && r.candles.length ? r.candles : null;
+        if (which === tf) draw();
+      });
+    });
+  };
+
+  c.el.style.display = "block";
+  document.addEventListener("keydown", chartKey, true);
+  draw();
+}
+
+// ---- Generic strip popover (holders / new holders / bubble map) ----------
+// A body-level modal like the chart popover, but its shadow also loads the full
+// drawer stylesheet so holder rows, tabs and the bubble map render exactly as
+// they do in the drawer. The card body is a `.drawer` whose panel positioning
+// is neutralised here, keeping only its colours and child styles.
+const POP_STYLES = `
+  .pbackdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:rgba(4,6,3,.82);backdrop-filter:blur(10px) saturate(120%);-webkit-backdrop-filter:blur(10px) saturate(120%)}
+  .pcard{width:min(460px,94vw);max-height:82vh;display:flex;flex-direction:column;
+    background:#0b0e11;border:1px solid #28303c;border-radius:18px;overflow:hidden;
+    box-shadow:0 34px 90px -22px rgba(0,0,0,.96)}
+  .phead{display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid #1b222b;flex:0 0 auto}
+  .phead .plogo{width:34px;height:34px;border-radius:10px;object-fit:cover;display:block;
+    background:#151a21;border:1px solid #28303c;flex:0 0 auto}
+  .phead .plogo.scanlg{display:flex;align-items:center;justify-content:center;color:#b6f03c;
+    background:#0c1207;border-color:#26331a}
+  .phead .plogo.scanlg svg{width:19px;height:19px;display:block}
+  .phead .ptitle{flex:1;min-width:0}
+  .phead .ptitle b{display:block;font-size:17px;font-weight:700;color:#fff;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .phead .ptitle span{display:block;font:700 11.5px "ImpulseMono",ui-monospace,monospace;color:#8aa0b4;margin-top:2px;letter-spacing:.04em}
+  .pclose{width:32px;height:32px;border-radius:9px;border:1px solid #28303c;background:#151a21;
+    color:#c2cad6;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;padding:0;transition:.12s}
+  .pclose:hover{background:#1b222b;color:#fff}
+  .pbody{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#2b3542 transparent}
+  .pbody::-webkit-scrollbar{width:8px}
+  .pbody::-webkit-scrollbar-thumb{background:#2b3542;border-radius:8px}
+  /* Neutralise the side-panel geometry — keep the colours and child rules. */
+  .pcard .drawer{position:static;inset:auto;top:auto;right:auto;bottom:auto;left:auto;
+    width:auto;max-width:none;height:auto;z-index:auto;overflow:visible;border:0;border-radius:0;
+    box-shadow:none;animation:none;background:transparent}
+  .pbubblebox{padding:0;height:60vh;min-height:340px}
+  .pbubbleframe{width:100%;height:100%;border:0;display:block;background:#0b0e11}`;
+
+let _pop: { el: HTMLElement; root: HTMLElement } | null = null;
+let _popReq = 0;                            // bumped on open/close — voids stale fetches
+function popEl() {
+  if (_pop) return _pop;
+  const el = document.createElement("div");
+  el.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483646;display:none;";
+  const sh = el.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = STYLES + POP_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  document.body.appendChild(el);
+  _pop = { el, root };
+  return _pop;
+}
+function closePop() {
+  _popReq++;
+  if (_pop) { _pop.el.style.display = "none"; _pop.root.innerHTML = ""; }
+  document.removeEventListener("keydown", popKey, true);
+}
+function popKey(e: KeyboardEvent) { if (e.key === "Escape") { e.stopPropagation(); closePop(); } }
+
+// Renders the shell (backdrop + header + a scrollable `.drawer` body) and hands
+// back the body element to fill. `token` guards against a stale reopen.
+function popShell(sym: string, ca: string, logo: string | null | undefined, token: number): HTMLElement | null {
+  if (token !== _popReq) return null;
+  const p = popEl();
+  p.root.innerHTML =
+    `<div class="pbackdrop"><div class="pcard">` +
+      `<div class="phead">` +
+        (logo ? `<img class="plogo" src="${esc(logo)}" alt="">` : `<div class="plogo"></div>`) +
+        `<div class="ptitle"><b>${esc(sym || short(ca))}</b><span>${esc(short(ca))}</span></div>` +
+        `<button class="pclose" title="Close">${CHART_X}</button>` +
+      `</div>` +
+      `<div class="pbody"><div class="drawer"></div></div>` +
+    `</div></div>`;
+  const bd = p.root.querySelector(".pbackdrop") as HTMLElement;
+  bd.addEventListener("click", (e) => { if (e.target === bd) closePop(); });
+  (p.root.querySelector(".pclose") as HTMLElement).addEventListener("click", (e) => { e.stopPropagation(); closePop(); });
+  p.el.style.display = "block";
+  return p.root.querySelector(".pbody .drawer") as HTMLElement;
+}
+
+const gStartTs = (r: any): number => {
+  const v = Number(gPick(r, ["start_holding_at", "first_buy_time", "created_time", "buy_time", "last_active_timestamp"]));
+  return isFinite(v) && v > 0 ? v : 0;
+};
+
+// Holders / New holders overlay — top holders with KOL & smart-money filters,
+// the same view the drawer shows, just opened above the tweet.
+function openHoldersPop(ca: string, chain: string | null, sym: string, logo: string | null, initialTab: "holders" | "new") {
+  const my = ++_popReq;
+  const ch = chain || "robinhood";
+  let holdTab: "holders" | "new" | "traders" = initialTab;
+  let holdTag = "";
+  let page = 0;
+  const cache: Record<string, any[] | null | undefined> = {};
+  const busy: Record<string, boolean> = {};
+  const errs: Record<string, string> = {};
+  document.addEventListener("keydown", popKey, true);
+
+  const fetchRows = (force = false) => {
+    const k = holdTab + ":" + holdTag;
+    if (force) { delete cache[k]; delete errs[k]; }
+    if (cache[k] !== undefined || busy[k]) return;
+    busy[k] = true;
+    const endpointTab = holdTab === "traders" ? "traders" : "holders";
+    const orderBy = holdTab === "traders" ? "profit" : "amount_percentage";
+    send({ type: "STRIX_GMGN", what: "holders", ca, tab: endpointTab, orderBy, tag: holdTag || undefined }).then((r) => {
+      if (my !== _popReq) return;
+      busy[k] = false;
+      if (r?.noKey) { cache[k] = null; errs[k] = "GMGN key not configured."; }
+      else if (r?.error) { cache[k] = null; errs[k] = String(r.error); }
+      else {
+        let rows = gRows(r?.data);
+        if (holdTab === "new") rows = rows.slice().sort((a: any, b: any) => gStartTs(b) - gStartTs(a));
+        cache[k] = rows;
+      }
+      draw();
+    });
+  };
+
+  const draw = () => {
+    const body = popShell(sym, ca, logo, my);
+    if (!body) return;
+    const k = holdTab + ":" + holdTag;
+    const rows = cache[k];
+    const tabWord = holdTab === "new" ? "new holders" : holdTab;
+    const tabs = `<div class="hctl">
+      <div class="tfseg">
+        <button data-htab="holders" class="${holdTab === "holders" ? "on" : ""}">Holders</button>
+        <button data-htab="new" class="${holdTab === "new" ? "on" : ""}">New</button>
+        <button data-htab="traders" class="${holdTab === "traders" ? "on" : ""}">Traders</button>
+      </div>
+      <div class="tfseg">
+        <button data-htag="" class="${holdTag === "" ? "on" : ""}">All</button>
+        <button data-htag="renowned" class="${holdTag === "renowned" ? "on" : ""}">KOL</button>
+        <button data-htag="smart_degen" class="${holdTag === "smart_degen" ? "on" : ""}">Smart</button>
+      </div>
+    </div>`;
+    let inner: string;
+    if (busy[k] || rows === undefined) {
+      inner = `<div class="note"><span class="spin"></span>Loading ${tabWord}…</div>`;
+    } else if (!rows || !rows.length) {
+      const why = errs[k] ? `Couldn't load: ${esc(errs[k])}`
+        : holdTag ? "None found in the top 100." : "No holder data for this token yet.";
+      inner = `<div class="note">${why}<br/><br/><button class="amt" data-act="hretry" style="padding:7px 18px">Retry</button></div>`;
+    } else {
+      const pctOf = (r: any) => { const v = Number(gPick(r, ["amount_percentage"])); return isFinite(v) ? (v <= 1 ? v * 100 : v) : 0; };
+      const maxPct = rows.reduce((m: number, r: any) => Math.max(m, pctOf(r)), 0);
+      const kols = rows.filter((r: any) => { const t = gTags(r); return t.includes("kol") || t.includes("renowned"); }).length;
+      const smart = rows.filter((r: any) => gTags(r).includes("smart_degen")).length;
+      const top = rows.slice(0, 10).filter((r: any) => !gIsPool(r));
+      const known = top.filter((r: any) => pctOf(r) > 0);
+      const top10 = known.reduce((n: number, r: any) => n + pctOf(r), 0);
+      const haveEnough = known.length >= Math.max(1, Math.ceil(top.length / 2));
+      const conc = !haveEnough ? "" : top10 >= 50 ? "hi" : top10 >= 25 ? "mid" : "lo";
+      const summary = `<div class="hsum">
+        <div class="hsumcell"><span>Top 10 hold</span><b class="${conc}">${haveEnough ? `${top10.toFixed(1)}%` : "—"}</b></div>
+        <div class="hsumcell"><span>KOLs</span><b>${kols}</b></div>
+        <div class="hsumcell"><span>Smart money</span><b>${smart}</b></div>
+      </div>`;
+      const PAGE = 10;
+      const maxPage = Math.max(1, Math.ceil(rows.length / PAGE));
+      if (page >= maxPage) page = maxPage - 1;
+      const start = page * PAGE;
+      const slice = rows.slice(start, start + PAGE);
+      const head = `<div class="hhead"><span>#</span><span>Wallet</span><span class="r">Supply</span><span class="r">PnL</span></div>`;
+      const pager = maxPage > 1
+        ? `<div class="pager">
+            <button data-hpage="prev" ${page === 0 ? "disabled" : ""}>‹ Prev</button>
+            <span>${start + 1}–${Math.min(start + PAGE, rows.length)} of ${rows.length}</span>
+            <button data-hpage="next" ${page >= maxPage - 1 ? "disabled" : ""}>Next ›</button>
+          </div>`
+        : "";
+      const src = holdTab === "traders" ? "ranked by realised profit" : holdTab === "new" ? "newest holders first" : "ranked by holdings";
+      inner = summary + head +
+        slice.map((r: any, i: number) => holderRowHtml(r, start + i + 1, maxPct, ch)).join("") +
+        pager + `<div class="gsrc">${src} · via GMGN</div>`;
+    }
+    body.innerHTML = tabs + inner;
+
+    const bind = (sel: string, fn: (el: HTMLElement) => void) =>
+      body.querySelectorAll<HTMLElement>(sel).forEach((el) =>
+        el.addEventListener("click", (ev) => { if (ev.isTrusted) fn(el); }));
+    bind("[data-htab]", (el) => { holdTab = el.dataset.htab as any; page = 0; fetchRows(); draw(); });
+    bind("[data-htag]", (el) => { holdTag = el.dataset.htag || ""; page = 0; fetchRows(); draw(); });
+    bind("[data-hpage]", (el) => { page += el.dataset.hpage === "next" ? 1 : -1; if (page < 0) page = 0; draw(); });
+    bind('[data-act="hretry"]', () => { fetchRows(true); draw(); });
+  };
+
+  fetchRows();
+  draw();
+}
+
+// Bubble map overlay — the Bubblemaps iframe from our CSP-exempt page.
+function openBubblesPop(ca: string, sym: string, logo: string | null) {
+  const my = ++_popReq;
+  document.addEventListener("keydown", popKey, true);
+  const body = popShell(sym, ca, logo, my);
+  if (!body) return;
+  const src = chrome.runtime.getURL(`bubble.html?ca=${encodeURIComponent(ca)}`);
+  body.innerHTML = `<div class="pbubblebox"><iframe class="pbubbleframe" src="${src}" allow="clipboard-write"></iframe></div>` +
+    `<div class="gsrc">holder bubble map</div>`;
+}
+
 
 /**
  * Avatar for a thesis author.
@@ -1631,7 +2336,7 @@ function authorAvatar(seed: string, url?: string | null, mark: string = FOMO_MAR
   return `<div class="tav" style="background:${tint}">${mark}</div>`;
 }
 
-function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint: string | null = null) {
+function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint: string | null = null, opts?: DrawerOpts) {
   // Which chain this contract lives on. Starts as a hint from cashtag
   // resolution, is confirmed by the first STRIX_TOKEN reply, and is then sent
   // with every call so a Base token is never quoted or signed on Robinhood.
@@ -1644,7 +2349,8 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
   let editing = false;
   let pairAddr: string | null = null;
   let caCopied = false;
-  let view: "trade" | "chart" | "safety" | "holders" | "bubbles" | "fomo" | "callouts" | "ithesis" = "trade";
+  let view: "trade" | "chart" | "safety" | "holders" | "bubbles" | "fomo" | "callouts" | "ithesis" =
+    (opts?.view as any) || "trade";
   let tf = "1H";
   let chartLoading = false;
   // Per-timeframe candle cache: undefined = not fetched, null = no data.
@@ -1684,7 +2390,7 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
   let impSaving = false;
   let impMsg = "";                   // inline error/status under the composer
   let impStats: { seen: number; opened: number } | null = null; // popularity from our backend
-  let holdTab: "holders" | "traders" = "holders";
+  let holdTab: "holders" | "traders" | "new" = (opts?.holdTab as any) || "holders";
   let holdTag = ""; // "" | "renowned" | "smart_degen"
   let holdPage = 0;
   const holdCache: Record<string, any[] | null | undefined> = {};
@@ -1772,19 +2478,34 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
     });
   }
 
+  // First-buy timestamp for a holder row, for the "New" ordering. GMGN names it
+  // differently per chain; any of these means "when this wallet opened".
+  const gStart = (r: any): number => {
+    const v = Number(gPick(r, ["start_holding_at", "first_buy_time", "created_time", "buy_time", "last_active_timestamp"]));
+    return isFinite(v) && v > 0 ? v : 0;
+  };
+
   function ensureHolders(force = false) {
     const k = holdTab + ":" + holdTag;
     if (force) { delete holdCache[k]; delete holdErrs[k]; }
     if (holdCache[k] !== undefined || holdBusy[k]) return;
     holdBusy[k] = true;
     // Holders rank by current balance; traders rank by realized profit so
-    // exited wallets surface (otherwise the two lists look identical).
+    // exited wallets surface (otherwise the two lists look identical). "New"
+    // pulls the holder list and re-sorts newest-first, client side.
+    const endpointTab = holdTab === "traders" ? "traders" : "holders";
     const orderBy = holdTab === "traders" ? "profit" : "amount_percentage";
-    send({ type: "STRIX_GMGN", what: "holders", ca, tab: holdTab, orderBy, tag: holdTag || undefined }).then((r) => {
+    send({ type: "STRIX_GMGN", what: "holders", ca, tab: endpointTab, orderBy, tag: holdTag || undefined }).then((r) => {
       holdBusy[k] = false;
       if (r?.noKey) { gmgnKey = false; holdCache[k] = null; }
       else if (r?.error) { holdCache[k] = null; holdErrs[k] = String(r.error); }
-      else holdCache[k] = gRows(r?.data);
+      else {
+        let rows = gRows(r?.data);
+        if (holdTab === "new") {
+          rows = rows.slice().sort((a: any, b: any) => gStart(b) - gStart(a));
+        }
+        holdCache[k] = rows;
+      }
       if (view === "holders") render();
     });
   }
@@ -2027,6 +2748,7 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
       const tabs = `<div class="hctl">
         <div class="tfseg">
           <button data-htab="holders" class="${holdTab === "holders" ? "on" : ""}">Holders</button>
+          <button data-htab="new" class="${holdTab === "new" ? "on" : ""}">New</button>
           <button data-htab="traders" class="${holdTab === "traders" ? "on" : ""}">Traders</button>
         </div>
         <div class="tfseg">
@@ -2036,8 +2758,9 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
         </div>
       </div>`;
       let body: string;
+      const tabWord = holdTab === "new" ? "new holders" : holdTab;
       if (holdBusy[k] || rows === undefined) {
-        body = `<div class="note"><span class="spin"></span>Loading ${holdTab}…</div>`;
+        body = `<div class="note"><span class="spin"></span>Loading ${tabWord}…</div>`;
       } else if (!rows || !rows.length) {
         const why = holdErrs[k]
           ? `Couldn't load: ${esc(holdErrs[k])}`
@@ -2085,7 +2808,7 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
           : "";
         body = summary + head +
           slice.map((r: any, i: number) => holderRowHtml(r, start + i + 1, maxPct, chain || "robinhood")).join("") +
-          pager + `<div class="gsrc">${holdTab === "traders" ? "ranked by realised profit" : "ranked by holdings"} · via GMGN</div>`;
+          pager + `<div class="gsrc">${holdTab === "traders" ? "ranked by realised profit" : holdTab === "new" ? "newest holders first" : "ranked by holdings"} · via GMGN</div>`;
       }
       content.innerHTML = `${headHtml}${tabs}${body}${footHtml}`;
     } else if (view === "ithesis") {
@@ -2549,6 +3272,8 @@ function runPanel(ca: string, panel: HTMLElement, viaCashtag = false, chainHint:
     info = t.info;
     phase = "ready";
     render();
+    // Opened straight to a data view (from the overlay strip icons)? Kick its fetch.
+    if (view === "holders") ensureHolders();
     // GMGN extras (non-blocking): safety verdict + socials.
     if (chain && chain !== "robinhood") { sec = null; ginfo = null; }
     else send({ type: "STRIX_GMGN", what: "security", ca }).then((r) => {
@@ -2691,29 +3416,32 @@ async function mountIfToken(ca: string, node: Element, label?: string, chainHint
 }
 
 function scanNode(node: Element, text: string) {
-  // Raw addresses: verified first, so wallets never get a Buy button.
-  const addrs = Array.from(new Set(text.match(ADDR_RE) || []));
-  if (DEBUG) dlog("scanNode: addresses =", addrs);
-  addrs.slice(0, 2).forEach((ca) => { void mountIfToken(ca, node); });
-
-  // Solana mints. Same rule — verified before mounting, so a base58-shaped
-  // word or somebody's wallet address never becomes a Buy button.
-  if (!addrs.length) {
-    const mints = Array.from(new Set(text.match(SOL_RE) || [])).filter(looksLikeMint);
-    mints.slice(0, 2).forEach((mint) => { void mountIfToken(mint, node, undefined, "solana"); });
-  }
-
-  // Cashtags: our supported stocks resolve instantly; everything else is
+  // Cashtags first: our supported stocks resolve instantly; everything else is
   // looked up on Robinhood Chain via DexScreener.
   const tickers = new Set<string>();
   for (const m of text.matchAll(TICKER_RE)) tickers.add(m[1].toUpperCase());
-
   const stocks: string[] = [];
   const others: string[] = [];
   for (const sym of tickers) {
     if (STOCK_TICKERS[sym]) stocks.push(sym);
     else if (sym.length >= 2 && !TICKER_SKIP.has(sym)) others.push(sym);
   }
+  const hasTicker = stocks.length > 0 || others.length > 0;
+
+  // Raw addresses ONLY when there's no ticker in the same post: a $TICKER and a
+  // contract in one post are the same token, so we prefer the human-readable
+  // ticker and skip mounting a second pill for the CA. (Verified before mounting
+  // either way, so a wallet address never becomes a Buy button.)
+  if (!hasTicker) {
+    const addrs = Array.from(new Set(text.match(ADDR_RE) || []));
+    if (DEBUG) dlog("scanNode: addresses =", addrs);
+    addrs.slice(0, 2).forEach((ca) => { void mountIfToken(ca, node); });
+    if (!addrs.length) {
+      const mints = Array.from(new Set(text.match(SOL_RE) || [])).filter(looksLikeMint);
+      mints.slice(0, 2).forEach((mint) => { void mountIfToken(mint, node, undefined, "solana"); });
+    }
+  }
+
   // Pinned stock addresses are known good — no check needed.
   stocks.slice(0, 2).forEach((sym) => mountHost(STOCK_TICKERS[sym], node, `Buy $${sym}`));
   others.slice(0, 2).forEach((sym) => resolveAndMount(sym, node));
@@ -2951,95 +3679,87 @@ async function findBioToken(handle: string): Promise<BioToken | null> {
 const TRADER_ATTR = "data-strix-trader";
 const traderDismissed = new Set<string>();
 let traderHandle: string | null = null;
+// The resolved trader for the profile currently on screen — read by the inline
+// painters (PnL badge, holdings bar) and the Details button.
+let traderState: { handle: string; data: any; token: BioToken | null } | null = null;
+// Inlined holding logos (data URIs) keyed by source URL, so a rebuilt holdings
+// bar paints them instantly instead of re-fetching or flashing letters.
+const holdLogoCache: Record<string, string | null | undefined> = {};
 
 function removeTraderDock() {
   document.querySelectorAll(`[${TRADER_ATTR}]`).forEach((el) => el.remove());
   traderHandle = null;
+  traderState = null;
 }
 
 const fmtHold = (s: number) =>
   s >= 86400 ? `${(s / 86400).toFixed(1)}d` : s >= 3600 ? `${(s / 3600).toFixed(1)}h` : `${Math.round(s / 60)}m`;
 
-/** Analyze dock: the same shadow-root isolation and trusted-event rule as the
- *  trading panel, so the page can neither read it nor drive it. */
-function mountTraderDock(handle: string, dataIn: any, token: BioToken | null = null) {
-  // Replaced in place once the deep fetch lands, so draw() picks it up.
+/** The full trader panel, opened from the Details button as a right-side drawer
+ *  (same shadow-root isolation and trusted-event rule as the trading panel). */
+function openTraderPanel(handle: string, dataIn: any) {
+  document.querySelectorAll(`[${TRADER_ATTR}="panel"]`).forEach((el) => el.remove());
   let data = dataIn;
   const host = document.createElement("div");
   host.setAttribute(HOST_ATTR, "");
-  host.setAttribute(TRADER_ATTR, "");
-  host.style.cssText = "all:initial;position:fixed;inset:auto 0 0 auto;z-index:2147483000;";
+  host.setAttribute(TRADER_ATTR, "panel");
+  host.style.cssText = "all:initial;position:fixed;inset:0 0 0 auto;z-index:2147483000;";
   ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) =>
     host.addEventListener(ev, (e) => e.stopPropagation()));
-
   const sh = host.attachShadow({ mode: "closed" });
-  const style = document.createElement("style");
-  style.textContent = STYLES;
-  sh.appendChild(style);
-  const dock = document.createElement("div");
-  dock.className = "dock";
-  sh.appendChild(dock);
+  const style = document.createElement("style"); style.textContent = STYLES; sh.appendChild(style);
+  const panel = document.createElement("div"); panel.className = "drawer"; sh.appendChild(panel);
   document.body.appendChild(host);
+  makeDrawerDraggable(panel);
 
-  // One primary action, always. When the account is a trader that is the
-  // profile; when it is only a contract in a bio, the token takes the lime and
-  // there is no second pill to demote.
-  const label = "Analyze trader";
-  const pill = document.createElement("button");
-  pill.className = data ? "pill" : "pill hidden";
-  pill.innerHTML = `${LOGO}<span>${label}</span>`;
-  if (data) dock.appendChild(pill);
-
-  if (token) {
-    const tp = document.createElement("button");
-    // Secondary only when it is sharing the dock with the profile button.
-    tp.className = data ? "pill alt" : "pill";
-    tp.innerHTML = `${LOGO}<span>${esc(token.label)}</span>`;
-    tp.title = token.viaCashtag
-      ? "Resolved from a cashtag in the bio — verify the contract before trading"
-      : token.ca;
-    tp.addEventListener("click", (ev) => {
-      if (!ev.isTrusted) return;
-      openDrawer(token.ca, token.viaCashtag, token.chain);
-    });
-    dock.appendChild(tp);
-  }
-
-  const hide = document.createElement("button");
-  hide.className = "dockx";
-  hide.textContent = "hide for this profile";
-  hide.addEventListener("click", (ev) => {
-    if (!ev.isTrusted) return;
-    traderDismissed.add(handle.toLowerCase());
-    removeTraderDock();
-  });
-  dock.appendChild(hide);
-
-  let panel: HTMLElement | null = null;
-  // Which list is showing, and where in it. Held here rather than in the markup
-  // so paging survives a re-render.
   let tab: "positions" | "trades" = "positions";
   let holdPage = 0;
-  let close = () => {};
+  let source: "fomo" | "pump" = data?.fomo ? "fomo" : "pump";
+  const imgCache: Record<string, string | null | undefined> = {};
+  const close = () => { host.remove(); window.removeEventListener("keydown", onKey, true); };
+  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+  window.addEventListener("keydown", onKey, true);
+
+  const ensureHoldImages = () => {
+    if (source !== "fomo") return;
+    const holds: any[] = data?.fomo?.holdings || [];
+    const imgByAddr: Record<string, string> = {};
+    for (const h of holds) if (h.address && h.image) imgByAddr[String(h.address).toLowerCase()] = h.image;
+    const start = holdPage * HOLD_PAGE;
+    const pageUrls: (string | undefined)[] = tab === "positions"
+      ? holds.slice(start, start + HOLD_PAGE).map((h) => h.image)
+      : (data?.fomo?.trades || []).slice(start, start + HOLD_PAGE)
+          .map((t: any) => imgByAddr[String(t.address || "").toLowerCase()]);
+    const urls = [...pageUrls, ...topWins(holds).map((h) => h.image)];
+    for (const u of urls) {
+      if (!u || imgCache[u] !== undefined) continue;
+      imgCache[u] = null;
+      send({ type: "STRIX_IMAGE", url: u }).then((r) => {
+        imgCache[u] = r?.data || null;
+        if (r?.data) draw();
+      }).catch(() => { imgCache[u] = null; });
+    }
+  };
 
   const draw = () => {
-    if (!panel) return;
-    panel.innerHTML = traderHtml(handle, data, tab, holdPage);
-    // Rebound every draw: innerHTML replaces the nodes these were attached to.
+    ensureHoldImages();
+    panel.innerHTML = traderHtml(handle, data, tab, holdPage, source, imgCache);
+    panel.querySelectorAll<HTMLElement>("[data-tsrc]").forEach((el) =>
+      el.addEventListener("click", (ev) => {
+        if (!ev.isTrusted) return;
+        source = el.dataset.tsrc === "pump" ? "pump" : "fomo";
+        tab = "positions"; holdPage = 0; draw();
+      }));
     panel.querySelectorAll<HTMLElement>("[data-ttab]").forEach((el) =>
       el.addEventListener("click", (ev) => {
         if (!ev.isTrusted) return;
-        tab = el.dataset.ttab === "trades" ? "trades" : "positions";
-        holdPage = 0;
-        draw();
+        tab = el.dataset.ttab === "trades" ? "trades" : "positions"; holdPage = 0; draw();
       }));
     panel.querySelectorAll<HTMLElement>('[data-act="tpclose"]').forEach((el) =>
       el.addEventListener("click", (ev) => { if (ev.isTrusted) close(); }));
     panel.querySelectorAll<HTMLElement>("[data-hpage]").forEach((el) =>
       el.addEventListener("click", (ev) => {
         if (!ev.isTrusted) return;
-        // Page against whichever list is showing — positions and trades share
-        // the holdPage cursor but have different lengths.
         const total = (tab === "trades" ? data.fomo?.trades?.length : data.fomo?.holdings?.length) || 0;
         const max = Math.max(1, Math.ceil(total / HOLD_PAGE));
         holdPage += el.dataset.hpage === "next" ? 1 : -1;
@@ -3048,48 +3768,315 @@ function mountTraderDock(handle: string, dataIn: any, token: BioToken | null = n
       }));
   };
 
-  // Opened as the drawer, not as a card under the pill. A profile is a page of
-  // reading — PnL windows, a track record, then two paginated lists — and the
-  // 462px card it used to live in made every one of those a scroll. Appended to
-  // the shadow root rather than to .dock because the dock is anchored to the
-  // bottom-right corner and sized to its contents; the drawer owns the full
-  // height of the viewport.
-  close = () => {
-    if (!panel) return;
-    panel.remove();
-    panel = null;
-    dock.style.visibility = "";
-    pill.querySelector("span")!.textContent = label;
-  };
+  // If we were handed shallow data, deepen it in place.
+  if (!data?.fomo?.deep) {
+    send({ type: "STRIX_TRADER", handle, deep: true }).then((full) => {
+      if (full?.fomo) { const had = !!data?.fomo; data = full; if (!had) source = "fomo"; draw(); }
+    }).catch(() => {});
+  }
+  draw();
+}
 
-  // Fetched on open, not on arrival. The stats and both lists cost 3,250 CU on
-  // top of the identity check, and the dock appears on every X profile whether
-  // or not anyone wanted it — paying for the panel up front spent the month's
-  // allowance on profiles nobody opened.
-  let deepLoaded = false;
-  const loadDeep = async () => {
-    if (deepLoaded) return;
-    deepLoaded = true;
-    const full = await send({ type: "STRIX_TRADER", handle, deep: true }).catch(() => null);
-    if (full?.fomo) { data = full; if (panel) draw(); }
-  };
+/* ── inline profile overlays: a PnL badge by the name, a top-holdings row, and
+   a Details button that opens the full panel. Each is its own closed shadow so
+   X's CSS/CSP can't touch it; all carry TRADER_ATTR so a nav clears them. ── */
+const INLINE_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,sans-serif;box-sizing:border-box}
+  .pbadge{display:inline-flex;align-items:center;gap:11px;padding:11px 18px 11px 13px;border-radius:18px;cursor:pointer;
+    background:#0b0f06;border:1px solid #34431e;transition:background .12s,border-color .12s;
+    box-shadow:0 16px 40px -12px rgba(0,0,0,.9), 0 0 0 4px #000, 0 0 30px -8px rgba(182,240,60,.35)}
+  .pbadge:hover{background:#121808;border-color:#4c651f}
+  .pbadge img{width:34px;height:34px;border-radius:11px;display:block}
+  .pbv{display:flex;flex-direction:column;line-height:1}
+  .pbv b{font:700 27px "ImpulseMono",ui-monospace,monospace;color:#eef3e4;letter-spacing:-.02em}
+  .pbv i{font:700 10px "ImpulseMono",ui-monospace,monospace;font-style:normal;letter-spacing:.14em;
+    text-transform:uppercase;color:#8ce04a;margin-top:5px}
+  .card{width:100%;margin-top:12px;padding:13px 15px 15px;border-radius:16px;
+    background:radial-gradient(135% 130% at 0% 0%, rgba(182,240,60,.09), transparent 55%), #0b0f06;
+    border:1px solid #26331a;box-shadow:0 14px 34px -20px rgba(0,0,0,.7)}
+  .chead{display:flex;align-items:center;gap:18px}
+  .chead .mk{width:32px;height:32px;border-radius:9px;display:block;flex:0 0 auto;
+    box-shadow:0 0 0 1px rgba(182,240,60,.28), 0 6px 18px -8px rgba(182,240,60,.5)}
+  .stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .stat .sv{font:700 20px "ImpulseMono",ui-monospace,monospace;color:#eef3e4;line-height:1;
+    letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .stat .sv.up{color:#8ce04a}
+  .stat .sv.dn{color:#ff6b6b}
+  .stat .sl{font:700 8.5px "ImpulseMono",monospace;letter-spacing:.09em;text-transform:uppercase;color:#7d8a67}
+  .spacer{flex:1 1 auto}
+  .det{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;border:0;cursor:pointer;flex:0 0 auto;
+    background:#b6f03c;color:#0a1005;font:700 13.5px "ImpulseSans",sans-serif;box-shadow:0 8px 22px -10px rgba(182,240,60,.7);transition:background .12s}
+  .det:hover{background:#c9ff52}
+  .det img{width:18px;height:18px;border-radius:5px;display:block}
+  .det.buy{margin-right:8px;background:transparent;color:#b6f03c;border:1px solid #2a3a1a;box-shadow:none}
+  .det.buy:hover{background:#141810}
+  .hlbl{margin:15px 0 9px;font:700 9.5px "ImpulseMono",monospace;letter-spacing:.11em;text-transform:uppercase;color:#7d8a67}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 13px 6px 6px;border-radius:12px;
+    background:#11150a;border:1px solid #242e18;color:#eef3e4;transition:border-color .12s,background .12s}
+  .chip.link{cursor:pointer}
+  .chip.link:hover{border-color:#3d4f22;background:#161c0c}
+  .chip .lg{width:26px;height:26px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;background:#20261a;color:#b6f03c;font:800 10px "ImpulseSans",sans-serif}
+  .chip .lg img{width:100%;height:100%;object-fit:cover;display:block}
+  .chip .sym{font:700 13.5px "ImpulseSans",sans-serif}
+  .chip b{font:700 12.5px "ImpulseMono",ui-monospace,monospace;color:#a9b599}
+  @media (max-width:560px){ .chead{gap:12px} .stat .sv{font-size:17px} }`;
 
-  pill.addEventListener("click", (ev) => {
-    if (!ev.isTrusted) return;
-    if (panel) { close(); return; }
-    panel = document.createElement("div");
-    panel.className = "drawer";
-    sh.appendChild(panel);
-    makeDrawerDraggable(panel);
-    void loadDeep();
-    // The dock sits bottom-right, which is underneath the drawer — its pill and
-    // "hide for this profile" link were printing straight through the pager.
-    // The drawer carries its own close button, so the dock has nothing left to
-    // do while it is open.
-    dock.style.visibility = "hidden";
-    pill.querySelector("span")!.textContent = "Hide";
-    draw();
+function makeInlineHost(part: string, tag = "span"): { host: HTMLElement; root: HTMLElement } {
+  const host = document.createElement(tag);
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(TRADER_ATTR, part);
+  host.style.cssText = tag === "span" ? "all:initial;display:inline-flex;vertical-align:middle;margin-left:8px" : "all:initial;display:block";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) => host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = INLINE_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  return { host, root };
+}
+
+/**
+ * The Impulse stats card: one cohesive block placed under the profile's
+ * bio/location row. Header = PnL + portfolio stats and a Details button; below
+ * = the trader's top holdings as logo chips (each opens that token to trade).
+ */
+function injectStatsCard(data: any, token: BioToken | null) {
+  const f = data?.fomo;
+  const hasPanel = !!(data && (data.fomo || data.pump));
+  const pnl = f?.pnl?.all;
+  const port = f?.portfolioUsd;
+  const holds = f ? (f.holdings || []).slice().sort((a: any, b: any) => (b.valueUsd || 0) - (a.valueUsd || 0)).slice(0, 5) : [];
+  if (pnl == null && port == null && !holds.length && !token && !hasPanel) return;
+  const anchor = document.querySelector('[data-testid="UserProfileHeader_Items"]')
+    || document.querySelector('[data-testid="UserDescription"]')
+    || document.querySelector('[data-testid="UserName"]');
+  if (!anchor) return;
+  if (document.querySelector(`[${TRADER_ATTR}="card"]`)) return;
+  const { host, root } = makeInlineHost("card", "div");
+
+  const stat = (v: string, label: string, cls = "") =>
+    `<div class="stat"><div class="sv ${cls}">${v}</div><div class="sl">${label}</div></div>`;
+  // PnL is the card's headline (portfolio now lives on the avatar badge); fall
+  // back to portfolio here only when there's no PnL figure.
+  const stats = pnl != null
+    ? stat(`${pnl >= 0 ? "+" : ""}${money(pnl)}`, "Total PnL", pnl >= 0 ? "up" : "dn")
+    : (port != null ? stat(money(port), "Portfolio") : "");
+
+  // Cached logo → instant paint (X re-renders the header several times on load).
+  const slot = (h: any, i: number) => {
+    const cached = h.image ? holdLogoCache[h.image] : null;
+    if (cached) return `<span class="lg" data-lg="${i}"><img src="${cached}" alt=""></span>`;
+    return `<span class="lg" data-lg="${i}">${esc((String(h.symbol || "?")[0] || "?").toUpperCase())}</span>`;
+  };
+  const chips = holds.map((h: any, i: number) =>
+    `<span class="chip${h.address ? " link" : ""}"${h.address ? ` data-ca="${esc(h.address)}" data-chain="${esc(h.chain || "")}" title="Trade ${esc(h.symbol)}"` : ""}>` +
+    `${slot(h, i)}<span class="sym">${esc(h.symbol)}</span><b>${money(h.valueUsd || 0)}</b></span>`).join("");
+  const holdsBlock = holds.length ? `<div class="hlbl">Top holdings</div><div class="chips">${chips}</div>` : "";
+  const buyBtn = token ? `<button class="det buy" data-buy>${esc(token.label)}</button>` : "";
+  const detBtn = hasPanel ? `<button class="det" data-det>${LOGO}Details</button>` : "";
+
+  root.innerHTML = `<div class="card">
+      <div class="chead"><img class="mk" src="${chrome.runtime.getURL("icons/mascot.png")}" alt="">` +
+        `${stats}<div class="spacer"></div>${buyBtn}${detBtn}</div>${holdsBlock}</div>`;
+
+  (root.querySelector("[data-det]") as HTMLElement | null)?.addEventListener("click", (e) => {
+    if (e.isTrusted && traderState) openTraderPanel(traderState.handle, traderState.data);
   });
+  if (token) (root.querySelector("[data-buy]") as HTMLElement | null)?.addEventListener("click", (e) => {
+    if (e.isTrusted) openDrawer(token.ca, token.viaCashtag, token.chain);
+  });
+  root.querySelectorAll<HTMLElement>(".chip.link").forEach((el) => el.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    if (el.dataset.ca) openDrawer(el.dataset.ca, false, el.dataset.chain || null);
+  }));
+
+  anchor.insertAdjacentElement("afterend", host);
+  // Fetch any logo not already cached, then fill its slot and remember it.
+  holds.forEach((h: any, i: number) => {
+    if (!h.image) return;
+    const paint = (d: string) => { const lg = root.querySelector(`[data-lg="${i}"]`); if (lg && !lg.querySelector("img")) lg.innerHTML = `<img src="${d}" alt="">`; };
+    if (holdLogoCache[h.image] !== undefined) { const c = holdLogoCache[h.image]; if (c) paint(c); return; }
+    holdLogoCache[h.image] = null;
+    send({ type: "STRIX_IMAGE", url: h.image }).then((r) => {
+      const d = r?.data && String(r.data).startsWith("data:image/") ? String(r.data) : null;
+      holdLogoCache[h.image] = d;
+      if (d) paint(d);
+    }).catch(() => { holdLogoCache[h.image] = null; });
+  });
+}
+
+/** A small portfolio-value badge overlaid on the bottom of the profile avatar.
+ *  The page has many UserAvatar containers (the nav account, every tweet); the
+ *  profile header's is the large one, so pick by size, preferring the handle. */
+function injectPortfolioBadge(data: any) {
+  const port = data?.fomo?.portfolioUsd;
+  if (port == null) return;
+  const big = (els: Element[]) => els.find((el) => el.getBoundingClientRect().width > 72) as HTMLElement | undefined;
+  const handle = traderState?.handle || "";
+  const av =
+    (handle && big([...document.querySelectorAll(`[data-testid="UserAvatar-Container-${handle}"]`)]))
+    || big([...document.querySelectorAll('[data-testid^="UserAvatar-Container-"]')]);
+  if (!av) return;
+  if (av.querySelector(`[${TRADER_ATTR}="port"]`)) return;
+  if (getComputedStyle(av).position === "static") av.style.position = "relative";
+  const { host, root } = makeInlineHost("port", "div");
+  // To the right of the avatar, vertically centred, with a gap.
+  host.style.cssText = "all:initial;position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:20px;z-index:5;white-space:nowrap";
+  root.innerHTML = `<span class="pbadge" title="Portfolio value — open the Impulse panel">${LOGO_LG}` +
+    `<span class="pbv"><b>${money(port)}</b><i>Portfolio</i></span></span>`;
+  root.firstElementChild!.addEventListener("click", (e) => { if (e.isTrusted && traderState) openTraderPanel(traderState.handle, traderState.data); });
+  av.appendChild(host);
+}
+
+/** Ensure the inline overlays are present for the resolved trader (re-inserts if
+ *  X re-rendered the header and wiped them). Deduped; runs on the scan tick. */
+function paintTraderInline() {
+  const h = xProfileHandle(location.href);
+  if (!h || !traderState || traderState.handle.toLowerCase() !== h.toLowerCase()) return;
+  injectPortfolioBadge(traderState.data);
+  injectStatsCard(traderState.data, traderState.token);
+}
+
+/* ── Author overlays: a FOMO PnL + top-3 holdings badge on every tweet whose
+   author is a FOMO trader. Backend-only lookups (no FomoScan cost), throttled
+   to two at a time and cached per handle (including "not a trader"). ── */
+const AUTHOR_ATTR = "data-strix-author";
+const authorCache = new Map<string, any>();       // handle -> trader data | null
+const authorInFlight = new Set<string>();
+const authorQueue: string[] = [];
+let authorWorkers = 0;
+const AUTHOR_MAX = 2;
+const AUTHOR_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,sans-serif;box-sizing:border-box}
+  .fbadge{display:inline-flex;align-items:center;gap:10px;padding:4px 13px 4px 6px;border-radius:13px;cursor:pointer;
+    background:#0c1207;border:1px solid #34431e;transition:background .12s,border-color .12s;
+    box-shadow:0 8px 22px -10px rgba(0,0,0,.75), 0 0 22px -10px rgba(182,240,60,.35)}
+  .fbadge:hover{background:#121a0b;border-color:#4a621f}
+  .fpnl{display:inline-flex;align-items:center;gap:7px;font:700 17px "ImpulseMono",ui-monospace,monospace;color:#8ce04a;letter-spacing:-.02em}
+  .fpnl.dn{color:#ff6b6b}
+  .fpnl img{width:22px;height:22px;border-radius:7px;display:block}
+  .fholds{display:inline-flex;align-items:center}
+  .fh{width:27px;height:27px;border-radius:50%;margin-left:-9px;border:2px solid #0c1207;overflow:hidden;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;background:#20261a;color:#b6f03c;font:800 11px "ImpulseSans",sans-serif}
+  .fh:first-child{margin-left:0}
+  .fh img{width:100%;height:100%;object-fit:cover;display:block}`;
+
+function makeAuthorHost(handle: string): { host: HTMLElement; root: HTMLElement } {
+  const host = document.createElement("span");
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(AUTHOR_ATTR, handle.toLowerCase());
+  host.style.cssText = "all:initial;display:inline-flex;vertical-align:middle;margin-left:8px";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) => host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = AUTHOR_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  return { host, root };
+}
+
+function pumpAuthorQueue() {
+  while (authorWorkers < AUTHOR_MAX && authorQueue.length) {
+    const key = authorQueue.shift()!;
+    authorInFlight.add(key); authorWorkers++;
+    send({ type: "STRIX_TRADER", handle: key, deep: true, backendOnly: true })
+      .then((d) => { authorCache.set(key, d && d.fomo ? d : null); })
+      .catch(() => authorCache.set(key, null))
+      .finally(() => { authorInFlight.delete(key); authorWorkers--; injectCachedBadges(); pumpAuthorQueue(); });
+  }
+}
+function queueAuthor(handle: string) {
+  const key = handle.toLowerCase();
+  if (authorCache.has(key) || authorInFlight.has(key) || authorQueue.includes(key)) return;
+  authorQueue.push(key);
+  pumpAuthorQueue();
+}
+
+function injectAuthorBadge(un: Element, handle: string, data: any) {
+  const f = data?.fomo; if (!f) return;
+  const pnl = f.pnl?.all;
+  const holds = (f.holdings || []).slice().sort((a: any, b: any) => (b.valueUsd || 0) - (a.valueUsd || 0)).slice(0, 3);
+  if (pnl == null && !holds.length) return;
+  const key = handle.toLowerCase();
+  const existing = un.querySelector(`[${AUTHOR_ATTR}]`);
+  if (existing) { if (existing.getAttribute(AUTHOR_ATTR) === key) return; existing.remove(); } // stale on a recycled node
+  const { host, root } = makeAuthorHost(key);
+  const pnlHtml = pnl != null ? `<span class="fpnl ${pnl < 0 ? "dn" : ""}">${LOGO}${pnl >= 0 ? "+" : ""}${money(pnl)}</span>` : "";
+  const slot = (h: any, i: number) => {
+    const c = h.image ? holdLogoCache[h.image] : null;
+    const inner = c ? `<img src="${c}" alt="">` : esc((String(h.symbol || "?")[0] || "?").toUpperCase());
+    return `<span class="fh" data-fh="${i}" title="${esc(h.symbol || "")}">${inner}</span>`;
+  };
+  const holdsHtml = holds.length ? `<span class="fholds">${holds.map(slot).join("")}</span>` : "";
+  root.innerHTML = `<span class="fbadge" title="FOMO trader — open the Impulse panel">${pnlHtml}${holdsHtml}</span>`;
+  root.firstElementChild!.addEventListener("click", (e) => { if (e.isTrusted) openTraderPanel(handle, data); });
+  un.appendChild(host);
+  holds.forEach((h: any, i: number) => {
+    if (!h.image) return;
+    const paint = (d: string) => { const el = root.querySelector(`[data-fh="${i}"]`); if (el && !el.querySelector("img")) el.innerHTML = `<img src="${d}" alt="">`; };
+    if (holdLogoCache[h.image] !== undefined) { const c = holdLogoCache[h.image]; if (c) paint(c); return; }
+    holdLogoCache[h.image] = null;
+    send({ type: "STRIX_IMAGE", url: h.image }).then((r) => {
+      const d = r?.data && String(r.data).startsWith("data:image/") ? String(r.data) : null;
+      holdLogoCache[h.image] = d; if (d) paint(d);
+    }).catch(() => { holdLogoCache[h.image] = null; });
+  });
+}
+
+/** The author handle of a tweet, from its permalink (/handle/status/id), or a
+ *  profile link in the name block. Empty when it's not a real handle. */
+function authorHandleOf(art: Element): string {
+  const perma = (art.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null)?.getAttribute("href") || "";
+  let handle = perma.match(/^\/([^/]+)\/status\//)?.[1] || "";
+  if (!handle) {
+    const link = art.querySelector('[data-testid="User-Name"] a[href^="/"]:not([href*="/status"])') as HTMLAnchorElement | null;
+    handle = (link?.getAttribute("href") || "").replace(/^\//, "").split("/")[0];
+  }
+  return (handle && /^[A-Za-z0-9_]{1,15}$/.test(handle) && !X_RESERVED.has(handle.toLowerCase())) ? handle : "";
+}
+
+/** Paint badges for tweets whose author is already resolved (no lookups). */
+function injectCachedBadges() {
+  if (!FOMO_ENABLED) return;
+  document.querySelectorAll("article").forEach((art) => {
+    const un = art.querySelector('[data-testid="User-Name"]');
+    if (!un) return;
+    const handle = authorHandleOf(art);
+    if (!handle) return;
+    const data = authorCache.get(handle.toLowerCase());
+    if (data && data.fomo) injectAuthorBadge(un, handle, data);
+  });
+}
+
+// Look up a tweet's author only when it scrolls into view — so a fast feed
+// resolves a few at a time instead of firing every author at once on load.
+const tweetIO = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    const art = e.target as Element;
+    const handle = authorHandleOf(art);
+    if (!handle) continue;
+    const key = handle.toLowerCase();
+    if (!authorCache.has(key)) queueAuthor(handle);
+    else {
+      const d = authorCache.get(key);
+      const un = art.querySelector('[data-testid="User-Name"]');
+      if (d?.fomo && un) injectAuthorBadge(un, handle, d);
+    }
+  }
+}, { rootMargin: "250px 0px" });
+
+/** Observe any new tweets for the author overlay, and paint cached ones. */
+function paintTweetAuthors() {
+  if (!FOMO_ENABLED) return;
+  document.querySelectorAll("article:not([data-strix-io])").forEach((art) => {
+    art.setAttribute("data-strix-io", "1");
+    tweetIO.observe(art);
+  });
+  injectCachedBadges();
 }
 
 /** Holdings per page. Eight fills the panel without needing a scroll. */
@@ -3147,7 +4134,29 @@ const fmtAgoShort = (ms: number) => {
 
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
-function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "positions", holdPage = 0): string {
+/** A round token thumbnail for a holding: the inlined logo, or a lettered
+ *  fallback tinted from the symbol so pictureless tokens still read apart. */
+function tokThumb(sym: string, image: string | null | undefined, imgCache: Record<string, string | null | undefined>): string {
+  const data = image ? imgCache[image] : null;
+  if (data && String(data).startsWith("data:image/")) {
+    return `<img class="htokimg" src="${data}" alt="">`;
+  }
+  const s = String(sym || "?").replace(/^\$/, "");
+  const initial = esc((s[0] || "?").toUpperCase());
+  const hue = ([...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7));
+  return `<span class="htokfb" style="background:hsl(${hue} 42% 24%);color:hsl(${hue} 80% 74%)">${initial}</span>`;
+}
+
+/** A trader's biggest winning positions (by USD profit), for the top strip. */
+function topWins(holdings: any[]): any[] {
+  return (holdings || [])
+    .filter((h) => Number(h?.pnlUsd) > 0)
+    .sort((a, b) => Number(b.pnlUsd) - Number(a.pnlUsd))
+    .slice(0, 5);
+}
+
+function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "positions", holdPage = 0,
+  source: "fomo" | "pump" = "fomo", imgCache: Record<string, string | null | undefined> = {}): string {
   const f = d.fomo, p = d.pump;
   const av = f?.avatar || p?.avatar || null;
   // Only a data: URI the extension built itself is ever written into src. Any
@@ -3245,9 +4254,9 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
   // reading the holders table and the thesis feed already ask for.
   const maxVal = all.reduce((m: number, h: any) => Math.max(m, Number(h.valueUsd) || 0), 0);
 
-  const row = (sym: string, addr: string | null, mid: string, right: string, title: string, fill = 0) => {
+  const row = (sym: string, addr: string | null, mid: string, right: string, title: string, fill = 0, thumb = "") => {
     const bar = fill > 0 ? `<span class="hfill" style="width:${fill.toFixed(1)}%"></span>` : "";
-    const inner = `${bar}<span class="hsym">${esc(sym)}</span>${mid}${right}<span class="hgo" aria-hidden="true">↗</span>`;
+    const inner = `${bar}${thumb}<span class="hsym">${esc(sym)}</span>${mid}${right}<span class="hgo" aria-hidden="true">↗</span>`;
     // An anchor rather than a click handler: it needs no script, so the host
     // page's CSP cannot stop it opening.
     return addr
@@ -3268,12 +4277,13 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
         // position on four different networks and the symbol alone never said
         // which one a row was.
         const net = h.chain && CHAIN_LABEL[h.chain]
-          ? `<span class="hchain">${esc(CHAIN_LABEL[h.chain].short)}</span>` : "";
+          ? `<span class="hchainlogo" title="${esc(CHAIN_LABEL[h.chain].name)}">${chainLogo(CHAIN_LABEL[h.chain].logo, 15)}</span>` : "";
         return row(h.symbol, h.address,
           net + `<span class="hval2">${h.valueUsd == null ? "—" : money(h.valueUsd)}</span>`,
           `<span class="hchg ${cls}">${ch == null ? "" : fmtPct(Number(ch))}</span>`,
           `${h.symbol}: ${money(v)} held, ${ch == null ? "return unknown" : Number(ch).toFixed(1) + "% unrealised"}`,
-          maxVal > 0 && v > 0 ? Math.max(1.5, Math.min(100, (v / maxVal) * 100)) : 0);
+          maxVal > 0 && v > 0 ? Math.max(1.5, Math.min(100, (v / maxVal) * 100)) : 0,
+          tokThumb(h.symbol, h.image, imgCache));
       }).join("")}</div>
       ${maxPage > 1 ? `<div class="pager">
         <button data-hpage="prev" ${page === 0 ? "disabled" : ""}>‹ Prev</button>
@@ -3281,6 +4291,10 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
         <button data-hpage="next" ${page >= maxPage - 1 ? "disabled" : ""}>Next ›</button>
       </div>` : ""}`
     : `<div class="tpempty">No captured positions for this trader yet.</div>`;
+
+  // Trades carry no logo of their own; borrow it from the holdings by address.
+  const imgByAddr: Record<string, string> = {};
+  for (const h of all) if (h.address && h.image) imgByAddr[String(h.address).toLowerCase()] = h.image;
 
   const trades = f?.trades || [];
   const tMaxPage = Math.max(1, Math.ceil(trades.length / HOLD_PAGE));
@@ -3293,18 +4307,20 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
         const cls = v == null ? "" : v >= 0 ? "up" : "dn";
         const when = t.closedAt || t.createdAt;
         const net = t.chain && CHAIN_LABEL[t.chain]
-          ? `<span class="hchain">${esc(CHAIN_LABEL[t.chain].short)}</span>` : "";
+          ? `<span class="hchainlogo" title="${esc(CHAIN_LABEL[t.chain].name)}">${chainLogo(CHAIN_LABEL[t.chain].logo, 15)}</span>` : "";
         // A FOMO swap carries a direction (buy/sell) and a USD size but no PnL.
         // Show those — a green "buy"/red "sell" tag and the dollar size — rather
         // than a hardcoded "closed" and an empty PnL column.
         const side = t.status === "buy" ? "up" : t.status === "sell" ? "dn" : "";
         const label = t.status === "buy" || t.status === "sell" ? t.status : (open ? "open" : "closed");
         const size = t.amount != null ? money(t.amount) : (v == null ? "—" : (v >= 0 ? "+" : "") + money(v));
+        const timg = tokThumb(t.symbol, imgByAddr[String(t.address || "").toLowerCase()], imgCache);
         return row(t.symbol, t.address,
           net + `<span class="tstatus ${side || (open ? "open" : "")}">${label}</span>`,
           `<span class="hchg">${size}</span>` +
           `<span class="twhen2">${when ? fmtAgoShort(Number(when)) : ""}</span>`,
-          t.note ? String(t.note).slice(0, 180) : `${t.symbol} · ${label} ${size}`);
+          t.note ? String(t.note).slice(0, 180) : `${t.symbol} · ${label} ${size}`,
+          0, timg);
       }).join("")}</div>
       ${tMaxPage > 1 ? `<div class="pager">
         <button data-hpage="prev" ${tPage === 0 ? "disabled" : ""}>‹ Prev</button>
@@ -3335,27 +4351,78 @@ function traderHtml(handle: string, d: any, tab: "positions" | "trades" = "posit
       ? `<div class="tpempty"><span class="spin"></span> Loading track record…</div>`
       : "";
 
-  const w = f?.wallets || p?.wallets || {};
+  // Wallets follow the active source — the panel is showing one platform's
+  // profile, so it shows that platform's addresses.
+  const w = (source === "pump" ? p?.wallets : f?.wallets) || f?.wallets || p?.wallets || {};
   const wallets = [
     w.evm ? `<div class="wrow"><span class="wtag">EVM</span><span class="waddr">${esc(shortAddr(w.evm))}</span></div>` : "",
     w.solana ? `<div class="wrow"><span class="wtag">SOL</span><span class="waddr">${esc(shortAddr(w.solana))}</span></div>` : "",
   ].join("");
 
-  return `<div class="tp">
-    <div class="tphead">
+  // Source switch — only when both platforms know the handle. FOMO leads.
+  const toggle = f && p
+    ? `<div class="tsrcseg">
+        <button data-tsrc="fomo" class="${source === "fomo" ? "on" : ""}">${FOMO_MARK_SM}<span>FOMO</span></button>
+        <button data-tsrc="pump" class="${source === "pump" ? "on" : ""}">${PUMP_MARK_SM}<span>pump.fun</span></button>
+      </div>`
+    : "";
+
+  const followers = source === "pump"
+    ? (p?.followers != null ? `<div class="tpfol" title="Followers on pump.fun"><b>${fmtCount(p.followers)}</b><span>on pump.fun</span></div>` : "")
+    : (f?.followers ? `<div class="tpfol" title="Followers on FOMO, not on X"><b>${fmtCount(f.followers)}</b><span>on FOMO</span></div>` : "");
+
+  const head = `<div class="tphead">
       <div class="tpav">${disc}</div>
       <div class="tpmeta">
-        <div class="tpname">${esc(f?.displayName || f?.handle || p?.handle || handle)}
-          ${f?.verified ? `<span class="tver">✓</span>` : ""}</div>
+        <div class="tpname">${esc((source === "pump" ? p?.handle : f?.displayName || f?.handle) || p?.handle || handle)}
+          ${source !== "pump" && f?.verified ? `<span class="tver">✓</span>` : ""}</div>
         <div class="tphandle">@${esc(handle)}</div>
       </div>
-      ${f?.followers ? `<div class="tpfol" title="Followers on FOMO, not on X"><b>${
-        fmtCount(f.followers)}</b><span>on FOMO</span></div>` : ""}
+      ${followers}
       <button class="xclose" data-act="tpclose" title="Close (Esc)" aria-label="Close">&#10005;</button>
     </div>
-    <div class="tpsrc">${src}</div>
-    ${badge}
-    ${notice}${summary}${pnl}${statHtml}${f && !f.deep ? "" : holds}
+    ${toggle}`;
+
+  // pump.fun view: it carries a profile, not a trading record, so this is the
+  // identity and reach, plus a jump to their pump.fun page.
+  if (source === "pump" && p) {
+    const pumpUrl = p.wallets?.solana ? `https://pump.fun/profile/${encodeURIComponent(p.wallets.solana)}` : `https://pump.fun/@${encodeURIComponent(handle)}`;
+    const pumpStats = `<div class="hsum">
+      <div class="hsumcell"><span>Followers</span><b>${p.followers != null ? fmtCount(p.followers) : "—"}</b></div>
+      <div class="hsumcell"><span>Following</span><b>${p.following != null ? fmtCount(p.following) : "—"}</b></div>
+      <div class="hsumcell"><span>Link</span><b class="${p.link === "confirmed" ? "lo" : ""}">${p.link === "confirmed" ? "Confirmed" : "Name"}</b></div>
+    </div>`;
+    return `<div class="tp">
+      ${head}
+      ${p.bio ? `<div class="tpbio">${esc(p.bio)}</div>` : ""}
+      ${pumpStats}
+      ${wallets ? `<div class="tpsec wsec">${wallets}</div>` : ""}
+      <div class="tpsec" style="border-top:1px solid var(--line)">
+        <a class="tpext" href="${pumpUrl}" target="_blank" rel="noopener noreferrer">${PUMP_MARK_SM}<span>View on pump.fun</span><span class="hgo2">↗</span></a>
+      </div>
+    </div>`;
+  }
+
+  // Bio, straight from FOMO's profile (newlines preserved).
+  const bioHtml = f?.bio ? `<div class="tpbio">${esc(f.bio)}</div>` : "";
+
+  // Biggest wins: a horizontal strip of the trader's top positions by USD profit.
+  const wins = topWins(f?.holdings || []);
+  const winStrip = wins.length
+    ? `<div class="ttlabel">Biggest wins</div>
+       <div class="ttrades">${wins.map((h: any, i: number) => `
+         <div class="ttcard">
+           <div class="tthd">#${i + 1} Trade</div>
+           <div class="ttrow">${tokThumb(h.symbol, h.image, imgCache)}<span class="ttsym">${esc(h.symbol)}</span></div>
+           <div class="ttfoot"><span class="ttpnl">+${fmtCompact(h.pnlUsd)}</span>${
+             h.returnPct != null ? `<span class="ttpct">▲${fmtPct(Math.abs(Number(h.returnPct))).replace("+", "")}</span>` : ""}</div>
+         </div>`).join("")}</div>`
+    : "";
+
+  return `<div class="tp">
+    ${head}
+    ${bioHtml}
+    ${notice}${summary}${winStrip}${pnl}${statHtml}${f && !f.deep ? "" : holds}
     ${wallets ? `<div class="tpsec wsec">${wallets}</div>` : ""}
   </div>`;
 }
@@ -3366,27 +4433,23 @@ async function syncTraderDock() {
   if (!handle) { if (traderHandle) removeTraderDock(); return; }
   const key = handle.toLowerCase();
   if (traderDismissed.has(key)) return;
-  if (traderHandle && traderHandle.toLowerCase() === key) return;
+  if (traderHandle && traderHandle.toLowerCase() === key) { paintTraderInline(); return; }
 
-  // Both questions at once: is this person a trader, and does their bio name a
-  // token. They are independent — a project account has a contract and no
-  // trading record, a trader has a record and an empty bio — so neither is
-  // allowed to gate the other, and the dock appears if either answers.
-  const [data, token] = await Promise.all([
-    send({ type: "STRIX_TRADER", handle }).catch(() => null),
-    findBioToken(handle).catch(() => null),
-  ]);
-  const trader = data && (data.fomo || data.pump) ? data : null;
-
-  // Neither, so nothing. Most people on X are not traders and do not have a
-  // contract in their bio, and a button that opens an empty panel is worse
-  // than no button at all.
-  if (!trader && !token) return;
-  if (xProfileHandle(location.href) !== handle) return; // navigated away mid-flight
-
+  // New profile: clear the old overlays and resolve this one. The deep call is
+  // made up front now (the PnL badge and top-holdings row are shown inline, not
+  // behind a click), joined with a bio-token check for a possible Buy chip.
   removeTraderDock();
   traderHandle = handle;
-  mountTraderDock(handle, trader, token);
+  const [data, token] = await Promise.all([
+    send({ type: "STRIX_TRADER", handle, deep: true }).catch(() => null),
+    findBioToken(handle).catch(() => null),
+  ]);
+  if (xProfileHandle(location.href) !== handle) return;        // navigated away mid-flight
+  const trader = data && (data.fomo || data.pump) ? data : null;
+  if (!trader && !token) return;                               // not a trader, no bio token — nothing to show
+
+  traderState = { handle, data: trader, token };
+  paintTraderInline();
 }
 
 const DOCK_ATTR = "data-strix-dock";
@@ -3701,19 +4764,422 @@ function scanGeneric() {
   }
 }
 
+// ── Timeline ticker scanner ────────────────────────────────────────────────
+// A floating button that auto-scrolls the current timeline, collecting every
+// cashtag and contract it passes (deduped by tweet id), then shows them ranked
+// by how many tweets named each — a fast read of what the feed is talking
+// about, without scrolling it by hand, with a Buy on every row.
+const SCAN_ATTR = "data-strix-scan";
+let scanBusy = false;
+const napMs = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const SCAN_ICON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.7-4.7"/></svg>`;
+const SCAN_CHEV = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
+const QUOTE_ICON = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.2-4A8 8 0 1 1 21 12z"/></svg>`;
+
+// ── Tweet hover card ───────────────────────────────────────────────────────
+// Hovering a scanned ticker shows who tweeted it and what they said, in a
+// body-level card (own closed shadow, fixed position) so nothing on the page or
+// the popover can clip it.
+const TWEET_TIP_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:400;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-400.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,sans-serif;box-sizing:border-box}
+  .twc{width:100%;padding:13px 14px;border-radius:15px;background:#0a0d07;border:1px solid #222a18;
+    box-shadow:0 22px 54px -16px rgba(0,0,0,.94)}
+  .twh{display:flex;align-items:center;gap:7px;margin-bottom:11px;padding-bottom:10px;border-bottom:1px solid #171c11;
+    font:700 12.5px "ImpulseSans",sans-serif;color:#eef3e4}
+  .twh svg{color:#8a927e}
+  .twh .c{color:#b6f03c;font-family:"ImpulseMono",ui-monospace,monospace}
+  .twrow{display:flex;flex-direction:column;gap:3px}
+  .twrow + .twrow{margin-top:11px;padding-top:11px;border-top:1px solid #12160c}
+  .twn{font:700 12.5px "ImpulseSans",sans-serif;color:#b6f03c}
+  .twt{font-size:12.5px;line-height:1.5;color:#c7cebb;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .twmore{margin-top:11px;font:700 10px "ImpulseMono",monospace;letter-spacing:.06em;text-transform:uppercase;color:#7d8a67;text-align:center}`;
+
+let _twtip: { el: HTMLElement; root: HTMLElement } | null = null;
+function twTipEl() {
+  if (_twtip) return _twtip;
+  const el = document.createElement("div");
+  el.style.cssText = "all:initial;position:fixed;z-index:2147483647;pointer-events:none;display:none;width:330px;";
+  const sh = el.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = TWEET_TIP_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  document.body.appendChild(el);
+  _twtip = { el, root };
+  return _twtip;
+}
+function tweetCardHtml(label: string, tweets: Mention[]): string {
+  const shown = tweets.slice(0, 4);
+  const rows = shown.map((m) =>
+    `<div class="twrow"><div class="twn">@${esc(m.h || "?")}</div><div class="twt">${esc(m.t || "")}</div></div>`).join("");
+  const more = tweets.length > shown.length ? `<div class="twmore">+${tweets.length - shown.length} more</div>` : "";
+  return `<div class="twc"><div class="twh">${QUOTE_ICON}<span>Who tweeted <span class="c">${esc(label)}</span></span></div>${rows}${more}</div>`;
+}
+function showTwTip(rect: DOMRect, html: string) {
+  const t = twTipEl();
+  t.root.innerHTML = html;
+  t.el.style.display = "block";
+  const W = 330, gap = 10;
+  let left = rect.left + rect.width / 2 - W / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - W - 8));
+  t.el.style.left = `${left}px`;
+  const h = (t.root.firstElementChild as HTMLElement)?.offsetHeight || 120;
+  let top = rect.top - h - gap;
+  if (top < 8) top = rect.bottom + gap;   // flip below if no room above
+  t.el.style.top = `${top}px`;
+}
+function hideTwTip() { if (_twtip) _twtip.el.style.display = "none"; }
+const SCAN_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  .scanfab{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border-radius:999px;
+    border:1px solid #26331a;background:#0c1207;color:#b6f03c;cursor:pointer;
+    font:700 13px "ImpulseSans",-apple-system,sans-serif;box-shadow:0 12px 34px -12px rgba(0,0,0,.85);
+    transition:background .12s,transform .12s}
+  .scanfab:hover{background:#111a0b;transform:translateY(-1px)}
+  .scanfab svg{display:block;flex:0 0 auto}`;
+
+function mountScanButton() {
+  if (document.querySelector(`[${SCAN_ATTR}="btn"]`)) return;
+  const host = document.createElement("div");
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(SCAN_ATTR, "btn");
+  host.style.cssText = "all:initial;position:fixed;left:16px;bottom:16px;z-index:2147483000;";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) =>
+    host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = SCAN_STYLES; sh.appendChild(st);
+  const btn = document.createElement("button");
+  btn.className = "scanfab";
+  btn.innerHTML = `${SCAN_ICON}<span>Scan tickers</span>`;
+  btn.title = "Scan the timeline for cashtags & contracts";
+  btn.addEventListener("click", (e) => { if (e.isTrusted) void startTimelineScan(); });
+  sh.appendChild(btn);
+  document.body.appendChild(host);
+}
+
+// Read every tweet currently in the DOM once (X recycles nodes as you scroll,
+// so this is called repeatedly and deduped by tweet id). Alongside the counts it
+// remembers the FIRST tweet (newest, since we scan top-down) that named each
+// ticker/contract, so a row can link back to where it was mentioned.
+type Mention = { h: string; t: string; u: string };   // handle, tweet text, url
+
+function collectTweets(
+  seen: Set<string>, tickers: Map<string, number>, cas: Map<string, number>,
+  tickerUrl: Map<string, string>, caUrl: Map<string, string>,
+  tickerTweets: Map<string, Mention[]>, caTweets: Map<string, Mention[]>,
+) {
+  const push = (m: Map<string, Mention[]>, key: string, men: Mention) => {
+    const arr = m.get(key) || [];
+    if (arr.length < 12) arr.push(men);
+    m.set(key, arr);
+  };
+  document.querySelectorAll("article").forEach((art) => {
+    const href = (art.querySelector('a[href*="/status/"]') as HTMLAnchorElement | null)?.getAttribute("href") || "";
+    const m0 = href.match(/^(\/[^/]+\/status\/\d+)/);
+    const id = href.match(/\/status\/(\d+)/)?.[1];
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    const url = location.origin + (m0 ? m0[1] : `/i/status/${id}`);
+    const handle = m0 ? (m0[1].split("/")[1] || "") : "";
+    const tn = art.querySelector('[data-testid="tweetText"]');
+    const text = tn ? nodeText(tn) : "";
+    if (!text) return;
+    const men: Mention = { h: handle, t: text.replace(/\s+/g, " ").trim().slice(0, 220), u: url };
+    // Count each tweet once per distinct ticker / contract it names.
+    const tset = new Set<string>();
+    for (const m of text.matchAll(TICKER_RE)) if (m[1]) tset.add(m[1].toUpperCase());
+    for (const t of tset) { tickers.set(t, (tickers.get(t) || 0) + 1); if (!tickerUrl.has(t)) tickerUrl.set(t, url); push(tickerTweets, t, men); }
+    const cset = new Set<string>();
+    for (const a of text.match(ADDR_RE) || []) cset.add(a);
+    for (const s of text.match(SOL_RE) || []) if (looksLikeMint(s)) cset.add(s);
+    for (const c of cset) { cas.set(c, (cas.get(c) || 0) + 1); if (!caUrl.has(c)) caUrl.set(c, url); push(caTweets, c, men); }
+  });
+}
+
+async function startTimelineScan() {
+  if (scanBusy) return;
+  scanBusy = true;
+  const my = ++_popReq;                          // shares the body-level popover + Escape/close
+  document.addEventListener("keydown", popKey, true);
+  const seen = new Set<string>();
+  const tickers = new Map<string, number>();
+  const cas = new Map<string, number>();
+  const tickerUrl = new Map<string, string>();
+  const caUrl = new Map<string, string>();
+  const tickerTweets = new Map<string, Mention[]>();
+  const caTweets = new Map<string, Mention[]>();
+  const startY = window.scrollY;
+  renderScanProgress(my, 0, 0);
+
+  const MAX_TWEETS = 120, MAX_SCROLLS = 50;
+  let scrolls = 0, stagnant = 0;
+  try {
+    while (my === _popReq && seen.size < MAX_TWEETS && scrolls < MAX_SCROLLS) {
+      const before = seen.size;
+      collectTweets(seen, tickers, cas, tickerUrl, caUrl, tickerTweets, caTweets);
+      renderScanProgress(my, seen.size, tickers.size);
+      if (seen.size === before) { if (++stagnant >= 5) break; } else stagnant = 0; // hit the end of the loaded feed
+      window.scrollBy(0, Math.round(window.innerHeight * 0.85));
+      scrolls++;
+      await napMs(450);                            // let the next window of tweets render
+    }
+    collectTweets(seen, tickers, cas, tickerUrl, caUrl, tickerTweets, caTweets);
+  } finally {
+    scanBusy = false;
+    window.scrollTo(0, startY);                     // put them back where they were
+  }
+  if (my === _popReq) renderScanResults(my, seen.size, tickers, cas, tickerUrl, caUrl, tickerTweets, caTweets);
+}
+
+function renderScanProgress(token: number, scanned: number, found: number) {
+  if (token !== _popReq) return;
+  const p = popEl();
+  p.el.style.display = "block";
+  p.root.innerHTML =
+    `<div class="pbackdrop"><div class="pcard scanpop"><div class="phead">` +
+      `<div class="plogo scanlg">${SCAN_ICON}</div>` +
+      `<div class="ptitle"><b>Scanning timeline</b><span>reading your feed</span></div>` +
+      `<button class="pclose" title="Stop">${CHART_X}</button></div>` +
+      `<div class="pbody"><div class="drawer"><div class="sprog">` +
+        `<div class="sprogbar"><span></span></div>` +
+        `<div class="sprognums">` +
+          `<div class="spn"><b>${scanned}</b><span>tweets read</span></div>` +
+          `<div class="spn"><b class="ac">${found}</b><span>tickers found</span></div>` +
+        `</div>` +
+        `<div class="sprognote">Collecting cashtags, hang tight</div>` +
+      `</div></div></div></div></div>`;
+  const bd = p.root.querySelector(".pbackdrop") as HTMLElement;
+  bd.addEventListener("click", (e) => { if (e.target === bd) closePop(); });
+  (p.root.querySelector(".pclose") as HTMLElement).addEventListener("click", (e) => { e.stopPropagation(); closePop(); });
+}
+
+function renderScanResults(token: number, scanned: number, tickers: Map<string, number>, cas: Map<string, number>,
+  tickerUrl?: Map<string, string>, caUrl?: Map<string, string>,
+  tickerTweets?: Map<string, Mention[]>, caTweets?: Map<string, Mention[]>) {
+  if (token !== _popReq) return;
+  const p = popEl();
+  const tk = [...tickers.entries()].sort((a, b) => b[1] - a[1]);
+  const ca = [...cas.entries()].sort((a, b) => b[1] - a[1]);
+  const maxT = tk.length ? tk[0][1] : 1;
+  const maxC = ca.length ? ca[0][1] : 1;
+
+  // The logo + name is a hover zone: hovering shows who tweeted it and what they
+  // said (a body-level card), clicking opens the top tweet. The rest of the row
+  // buys; the FOMO thesis avatars sit inside the card, under the ticker.
+  const open = (url: string | undefined, inner: string) => url
+    ? `<a class="sopen" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`
+    : `<span class="sopen">${inner}</span>`;
+
+  const tRow = ([sym, n]: [string, number], i: number) =>
+    `<div class="sgroup${i < 3 ? " top" : ""}"><div class="srow link" data-tkr="${esc(sym)}" title="Trade $${esc(sym)}">` +
+      `<span class="sfill" style="width:${Math.max(7, (n / maxT) * 100).toFixed(1)}%"></span>` +
+      `<span class="srank">${i + 1}</span>` +
+      open(tickerUrl?.get(sym), `<span class="slogo">${scanFb(sym)}</span>` +
+        `<span class="smeta"><span class="ssym">$${esc(sym)}</span><span class="smc"></span></span>`) +
+      `<span class="scount">${n}<i>×</i></span>` +
+      `<span class="sbuy">Buy<span class="sgo">↗</span></span></div><div class="rfomo" hidden></div></div>`;
+  const cRow = ([addr, n]: [string, number]) =>
+    `<div class="sgroup"><div class="srow link" data-ca="${esc(addr)}" title="${esc(addr)}">` +
+      `<span class="sfill dim" style="width:${Math.max(7, (n / maxC) * 100).toFixed(1)}%"></span>` +
+      open(caUrl?.get(addr), `<span class="slogo">${scanFb(short(addr))}</span>` +
+        `<span class="smeta"><span class="ssym mono">${esc(short(addr))}</span><span class="smc"></span></span>`) +
+      `<span class="scount">${n}<i>×</i></span>` +
+      `<span class="sbuy">Buy<span class="sgo">↗</span></span></div><div class="rfomo" hidden></div></div>`;
+
+  const summary = `<div class="ssum">
+    <div class="ssumcell"><b>${scanned}</b><span>Tweets read</span></div>
+    <div class="ssumcell"><b class="ac">${tk.length}</b><span>Cashtags</span></div>
+    <div class="ssumcell"><b>${ca.length}</b><span>Contracts</span></div>
+  </div>`;
+
+  const body = (tk.length || ca.length)
+    ? summary +
+      (tk.length ? `<div class="scap">Cashtags · most mentioned</div><div class="slist">${tk.map(tRow).join("")}</div>` : "") +
+      (ca.length ? `<div class="scap">Contracts</div><div class="slist">${ca.map(cRow).join("")}</div>` : "") +
+      `<div class="gsrc">tap any row to resolve & trade</div>`
+    : `<div class="sempty"><div class="semoji">🔍</div><b>Nothing to trade here</b>` +
+      `<span>No cashtags or contracts in the ${scanned} tweets scanned.</span></div>`;
+
+  p.root.innerHTML =
+    `<div class="pbackdrop"><div class="pcard scanpop"><div class="phead">` +
+      `<div class="plogo scanlg">${SCAN_ICON}</div>` +
+      `<div class="ptitle"><b>Timeline tickers</b><span>${scanned} tweets scanned</span></div>` +
+      `<button class="pclose" title="Close">${CHART_X}</button></div>` +
+      `<div class="pbody"><div class="drawer">${body}</div></div></div></div>`;
+  const bd = p.root.querySelector(".pbackdrop") as HTMLElement;
+  bd.addEventListener("click", (e) => { if (e.target === bd) closePop(); });
+  (p.root.querySelector(".pclose") as HTMLElement).addEventListener("click", (e) => { e.stopPropagation(); closePop(); });
+  // The logo/name zone opens the top tweet on click (keep that off the buy row)
+  // and, on hover, shows who tweeted this ticker and what they said.
+  p.root.querySelectorAll<HTMLElement>(".sopen").forEach((el) => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); });
+    const row = el.closest(".srow") as HTMLElement | null;
+    const isTkr = !!row?.dataset.tkr;
+    const key = (isTkr ? row?.dataset.tkr : row?.dataset.ca) || "";
+    const tweets = (isTkr ? tickerTweets?.get(key) : caTweets?.get(key)) || [];
+    if (!tweets.length) return;
+    const label = isTkr ? `$${key}` : short(key);
+    el.addEventListener("mouseenter", () => showTwTip(el.getBoundingClientRect(), tweetCardHtml(label, tweets)));
+    el.addEventListener("mouseleave", hideTwTip);
+  });
+  // A contract opens straight away; a cashtag opens its resolved token when the
+  // enrich pass has found one, otherwise resolves on click.
+  p.root.querySelectorAll<HTMLElement>("[data-ca]").forEach((el) =>
+    el.addEventListener("click", (e) => {
+      if (!e.isTrusted) return; e.stopPropagation(); closePop();
+      openDrawer(el.dataset.rca || el.dataset.ca!, false, el.dataset.rchain || null);
+    }));
+  p.root.querySelectorAll<HTMLElement>("[data-tkr]").forEach((el) =>
+    el.addEventListener("click", async (e) => {
+      if (!e.isTrusted) return;
+      e.stopPropagation();
+      if (el.classList.contains("resolving")) return;
+      if (el.dataset.rca) { closePop(); openDrawer(el.dataset.rca, true, el.dataset.rchain || null); return; }
+      if (el.classList.contains("scanna")) return;
+      el.classList.add("resolving");
+      const r = await send({ type: "STRIX_TICKER", symbol: el.dataset.tkr }).catch(() => null);
+      el.classList.remove("resolving");
+      if (r?.address) { closePop(); openDrawer(String(r.address), true, r.chain || null); }
+      else { el.classList.add("scanna"); el.setAttribute("title", "No tradable token found for this cashtag"); }
+    }));
+
+  // Enrich each row with its logo + market cap from DexScreener (throttled).
+  void enrichScanRows(p, token);
+}
+
+/** A lettered, symbol-tinted fallback avatar until the real logo loads. */
+function scanFb(label: string): string {
+  const s = String(label || "?").replace(/^\$/, "");
+  const hue = [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+  return `<span class="sfb" style="background:hsl(${hue} 42% 24%);color:hsl(${hue} 80% 74%)">${esc((s[0] || "?").toUpperCase())}</span>`;
+}
+
+/** Fill a scan row's detail drawer: the top 5 FOMO thesis authors on this token
+ *  (hover an avatar for their thesis, exactly like the tweet overlay), and a
+ *  toggle listing who tweeted it and what they said. */
+async function fillScanDetail(row: HTMLElement, detail: HTMLElement, token: number, tweets: Mention[]) {
+  if (detail.dataset.loaded || token !== _popReq) return;
+  detail.dataset.loaded = "1";
+
+  const whoList = tweets.length
+    ? `<div class="wholist" hidden>${tweets.map((m) =>
+        `<a class="whoitem" href="${esc(m.u)}" target="_blank" rel="noopener noreferrer">` +
+        `<span class="wh">@${esc(m.h || "?")}</span><span class="wt">${esc(m.t || "")}</span><span class="wgo">↗</span></a>`).join("")}</div>`
+    : "";
+  const whoBtn = tweets.length
+    ? `<button class="whobtn" data-who>See who tweeted<span class="whoct">${tweets.length}</span></button>`
+    : `<div class="rdnote">No tweet text captured.</div>`;
+
+  detail.innerHTML =
+    `<div class="rdsec"><div class="rdlbl">FOMO theses</div>` +
+      `<div class="rthesis"><span class="rdnote"><span class="spin"></span> Loading theses…</span></div></div>` +
+    `<div class="rdsec">${whoBtn}${whoList}</div>`;
+
+  // Wire the who-tweeted toggle.
+  const wb = detail.querySelector("[data-who]") as HTMLElement | null;
+  const wl = detail.querySelector(".wholist") as HTMLElement | null;
+  wb?.addEventListener("click", (e) => { if (!e.isTrusted) return; e.stopPropagation(); if (wl) { wl.hidden = !wl.hidden; wb.classList.toggle("open", !wl.hidden); } });
+  detail.querySelectorAll<HTMLElement>(".whoitem").forEach((a) => a.addEventListener("click", (e) => e.stopPropagation()));
+
+  // Resolve the token (cashtags may not be enriched yet), then load its theses.
+  let ca = row.dataset.rca || row.dataset.ca || "";
+  let chain = row.dataset.rchain || row.dataset.chain || "";
+  if (!ca && row.dataset.tkr) {
+    const r = await send({ type: "STRIX_TICKER", symbol: row.dataset.tkr }).catch(() => null);
+    if (r?.address) { ca = String(r.address); chain = r.chain || ""; row.dataset.rca = ca; row.dataset.rchain = chain; }
+  }
+  const strip = detail.querySelector(".rthesis") as HTMLElement | null;
+  if (token !== _popReq || !strip) return;
+  if (!ca) { strip.innerHTML = `<span class="rdnote">Couldn't resolve a token for this.</span>`; return; }
+  const items = await cachedFomoTop(ca.toLowerCase(), ca, chain || null).catch(() => []);
+  if (token !== _popReq) return;
+  if (items && items.length) {
+    strip.innerHTML = "";
+    const ts = document.createElement("div"); ts.className = "tstrip";
+    for (const t of items.slice(0, 5)) ts.appendChild(buildAvatar(t, "fomo"));
+    strip.appendChild(ts);
+  } else {
+    strip.innerHTML = `<span class="rdnote">No FOMO theses on this token yet.</span>`;
+  }
+}
+
+/**
+ * Enrich each scanned row: resolve it to a token (lenient DexScreener search for
+ * cashtags), paint its logo + market cap, then load the top FOMO thesis authors
+ * as hover-able avatars beside it. Four workers share the queue so nothing is hit
+ * in one burst; everything aborts when the popover closes (`token !== _popReq`).
+ */
+async function enrichScanRows(p: { root: HTMLElement }, token: number): Promise<void> {
+  const rows = [...p.root.querySelectorAll<HTMLElement>(".srow.link")];
+  let idx = 0;
+  const one = async (row: HTMLElement) => {
+    const sym = row.dataset.tkr || null;
+    let address = row.dataset.ca || null;
+    let chain: string | null = null;
+    let mcap: number | null = null;
+    let logo: string | null = null;
+    try {
+      if (sym) {
+        const r = await send({ type: "STRIX_DEXTICKER", symbol: sym }).catch(() => null);
+        if (token !== _popReq) return;
+        const d = r?.data;
+        if (!d?.address) { row.classList.add("scanna"); row.setAttribute("title", "No token found for this cashtag"); return; }
+        address = String(d.address); chain = d.chain || null; mcap = d.mcap ?? null; logo = d.logo ?? null;
+      } else if (address) {
+        const t = await send({ type: "STRIX_TOKEN", ca: address, chain: null }).catch(() => null);
+        if (token !== _popReq) return;
+        if (t?.info) { mcap = Number(t.info.mcap) || null; logo = t.info.logo || null; chain = t.chain || null; }
+      }
+      if (!address) return;
+      row.dataset.rca = address;                        // cache for an instant buy on click
+      if (chain) row.dataset.rchain = chain;
+      const mcEl = row.querySelector<HTMLElement>(".smc");
+      if (mcEl && mcap && mcap > 0) mcEl.innerHTML = `<b>MC</b> ${fmtCompact(mcap)}`;
+      if (logo) {
+        const img = await send({ type: "STRIX_IMAGE", url: logo }).catch(() => null);
+        if (token !== _popReq) return;
+        const lg = row.querySelector<HTMLElement>(".slogo");
+        if (img?.data && String(img.data).startsWith("data:image/") && lg) lg.innerHTML = `<img src="${img.data}" alt="">`;
+      }
+      // FOMO thesis authors on this token — the overlay, inline under the row.
+      const fomoEl = row.closest(".sgroup")?.querySelector(".rfomo") as HTMLElement | null;
+      if (fomoEl && !fomoEl.dataset.done) {
+        fomoEl.dataset.done = "1";
+        const items = await cachedFomoTop(address.toLowerCase(), address, chain).catch(() => []);
+        if (token !== _popReq) return;
+        if (items && items.length) {
+          const ts = document.createElement("div"); ts.className = "tstrip";
+          for (const it of items.slice(0, 5)) ts.appendChild(buildAvatar(it, "fomo"));
+          fomoEl.innerHTML = ""; fomoEl.appendChild(ts); fomoEl.hidden = false;
+        }
+      }
+    } catch { /* leave the fallback in place */ }
+  };
+  const worker = async () => { while (idx < rows.length && token === _popReq) await one(rows[idx++]); };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+
 function boot() {
   dlog("boot on", location.href, "| readyState =", document.readyState);
   scan();
+  mountScanButton();
   let t: number | undefined;
-  new MutationObserver(() => { if (t) clearTimeout(t); t = window.setTimeout(scan, 400); }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { if (t) clearTimeout(t); t = window.setTimeout(() => { scan(); paintTraderInline(); paintTweetAuthors(); }, 400); }).observe(document.body, { childList: true, subtree: true });
 
   // The URL dock runs independently of the text scan, so it still appears on a
   // page whose body never spells the address out, and it follows SPA routing.
   void syncDock();
   void syncTraderDock();
+  paintTweetAuthors();
   watchUrl(() => {
     void syncDock();
     void syncTraderDock();
+    mountScanButton();                  // survives SPA route changes
+    paintTweetAuthors();
   });
 }
 

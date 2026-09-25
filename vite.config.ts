@@ -5,7 +5,7 @@ import { crx, defineManifest } from "@crxjs/vite-plugin";
 const manifest = defineManifest({
   manifest_version: 3,
   name: "Impulse Wallet",
-  version: "2.6.0",
+  version: "2.11.2",
   description: "Non-custodial wallet for Robinhood Chain: hold ETH, trade tokens & tokenized stocks, with safety checks and live charts.",
   action: { default_popup: "index.html", default_title: "Impulse Wallet" },
   background: { service_worker: "src/background.ts", type: "module" },
@@ -35,11 +35,13 @@ const manifest = defineManifest({
     "https://api.dexscreener.com/*", // token metadata + prices
     "https://dd.dexscreener.com/*", // token logos (fetched by background)
     "https://cdn.dexscreener.com/*", // token logos
+    "https://token-media.defined.fi/*", // token logos on FOMO holdings (inlined by background)
     "https://assets.parqet.com/*", // stock ticker logos
     "https://api.geckoterminal.com/*", // OHLCV candles for charts
     "https://openapi.gmgn.ai/*", // token safety / holder analytics
     "https://api.fomoscan.sh/*", // trader identity, theses and PnL (metered key)
-    "https://backend.getimpulse.online/*", // our FOMO backend: theses + KOL profiles for every user
+    "https://backend.getimpulse.site/*", // our FOMO backend: theses + KOL profiles for every user (primary)
+    "https://impulse-fomo-production.up.railway.app/*", // FOMO backend (Railway URL, fallback)
     "https://copyd-production.up.railway.app/*", // copyd: FOMO copytrade jobs
     "https://prod-fomo-profile-pics.s3.amazonaws.com/*", // thesis author avatars
     "https://frontend-api-v3.pump.fun/*", // pump.fun callouts

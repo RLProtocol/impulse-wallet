@@ -69,7 +69,13 @@ export type Holding = {
   /** Unrealised return on the position. NOT a 24h move — the source has no
    *  such figure, and labelling it as one would invent a timeframe. */
   returnPct: number | null;
+  /** Profit on this position in USD (unrealised + any realised), for ranking a
+   *  trader's biggest wins. Null when there's no cost basis to measure against. */
+  pnlUsd: number | null;
   chain: string | null;
+  /** Token logo URL from FOMO's metadata (token-media.defined.fi), inlined by
+   *  the panel via STRIX_IMAGE. Null when the source carries no image. */
+  image: string | null;
 };
 
 /** How firmly this profile is tied to the X handle on screen. */
@@ -236,7 +242,9 @@ async function fomoscanActivity(id: string): Promise<{ holdings: Holding[]; trad
       valueUsd: v,
       amount: num(t.tokenAmount),
       returnPct: num(t.percentageUnrealizedPnl),
+      pnlUsd: num(t.unrealizedPnlUsd) ?? num(t.realizedPnlUsd) ?? null,
       chain: NETWORK_TO_CHAIN[String(t.tokenNetwork || "").toLowerCase()] ?? null,
+      image: t.tokenImageThumbUrl ? String(t.tokenImageThumbUrl) : null,
     });
   }
   holdings.sort((a, z) => (z.valueUsd ?? 0) - (a.valueUsd ?? 0));
@@ -347,13 +355,20 @@ async function fomoSideDirect(x: string, deep: boolean): Promise<FomoSide | null
         const entryQty = num(at.humanTokenAmount) ?? qty;
         const cost = entryQty * (num(at.avgEntryPrice) ?? 0);
         const returnPct = cost > 0 ? ((value - cost) / cost) * 100 : null;
+        const realized = num(at.realizedPnlUsd) ?? 0;
+        const pnlUsd = cost > 0 ? (value - cost) + realized : (realized !== 0 ? realized : null);
         holdings.push({
           symbol: String(tok.symbol || "?"),
           address: it.balance?.tokenAddress ? String(it.balance.tokenAddress) : null,
           valueUsd: value,
           amount: qty,
           returnPct,
+          pnlUsd,
           chain: NET_ID_TO_CHAIN[Number(tok.networkId)] ?? null,
+          // FOMO nests the logo under token.info (imageThumbUrl / imageSmallUrl).
+          image: tok.info?.imageThumbUrl ? String(tok.info.imageThumbUrl)
+            : tok.info?.imageSmallUrl ? String(tok.info.imageSmallUrl)
+            : tok.imageThumbUrl ? String(tok.imageThumbUrl) : null,
         });
         if (cost > 0) unrealized += value - cost;
       }
@@ -551,14 +566,24 @@ async function pumpSide(x: string): Promise<PumpSide | null> {
  * not they asked, buying the panel up front spent the monthly allowance on
  * profiles nobody looked at. Now the panel is bought when it is opened.
  */
-export async function traderForX(xHandle: string, deep = false): Promise<Trader | null> {
-  const key = (deep ? "deep:" : "") + xHandle.toLowerCase();
+export async function traderForX(xHandle: string, deep = false, backendOnly = false): Promise<Trader | null> {
+  const key = (backendOnly ? "b:" : "") + (deep ? "deep:" : "") + xHandle.toLowerCase();
   const hit = cache.get(key);
   if (hit && Date.now() - hit.t < TTL) return hit.v;
 
   // Our backend is the primary source for the FOMO side. FomoScan is only a
   // fallback for when the backend can't answer (unreachable or walled), so a
   // handle the backend resolves never pays a FomoScan credit.
+  //
+  // `backendOnly` is for bulk lookups (every author on a timeline): it uses ONLY
+  // the backend — no pump.fun call and no FomoScan fallback — so the thousands of
+  // non-trader handles a feed carries cost nothing beyond one cheap backend call.
+  if (backendOnly) {
+    const direct = await fomoSideDirect(xHandle, deep).catch(() => null);
+    const out: Trader | null = direct ? { xHandle, fomo: direct, pump: null } : null;
+    cache.set(key, { t: Date.now(), v: out });
+    return out;
+  }
   const [direct, pump] = await Promise.all([
     fomoSideDirect(xHandle, deep).catch(() => null),
     pumpSide(xHandle).catch(() => null),

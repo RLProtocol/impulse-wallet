@@ -15,7 +15,17 @@
 // extension can be unpacked, so treat it as public and rely on the backend's own
 // rate limiting rather than on hiding it. Override both via the build env.
 
-const BASE = String(import.meta.env.VITE_FOMO_BACKEND_URL || "https://backend.getimpulse.online");
+// Ordered list of hosts to try. The Railway URL is primary; the custom domains
+// are fallbacks. A browser that only granted one of these host permissions (e.g.
+// an install that predates the URL change) still reaches the backend through
+// whichever host it can — so a fetch that THROWS (network/permission) rolls to
+// the next host, while any real HTTP response is taken as final.
+const ENV_BASE = String(import.meta.env.VITE_FOMO_BACKEND_URL || "");
+const BASES = [...new Set([
+  ...(ENV_BASE ? [ENV_BASE] : []),
+  "https://backend.getimpulse.site",
+  "https://impulse-fomo-production.up.railway.app",
+].map((b) => b.replace(/\/+$/, "")))];
 const KEY = String(import.meta.env.VITE_FOMO_BACKEND_KEY || "a9ac56c0a3a317d15fb9ed819e91eae4fda25fbe3b15471498928fceb57ebe96");
 
 export type FomoResult<T> = { v: T } | { error: string };
@@ -36,16 +46,23 @@ const normAddr = (a: string) => (/^0x[0-9a-fA-F]{40}$/.test(a) ? a.toLowerCase()
  * session is temporarily walled) becomes an error the caller can fall back on.
  */
 async function get<T = any>(path: string): Promise<FomoResult<T>> {
-  let r: Response;
-  try {
-    r = await fetch(BASE + path, { headers: { "x-api-key": KEY, accept: "application/json" } });
-  } catch (e: any) {
-    return { error: (e?.message || String(e)).slice(0, 140) };
+  let lastErr = "backend unreachable";
+  for (const base of BASES) {
+    let r: Response;
+    try {
+      r = await fetch(base + path, { headers: { "x-api-key": KEY, accept: "application/json" } });
+    } catch (e: any) {
+      // Network/permission failure for THIS host — remember it and try the next.
+      lastErr = (e?.message || String(e)).slice(0, 140);
+      continue;
+    }
+    // The host answered, so it is reachable: this response is final.
+    let body: any;
+    try { body = await r.json(); } catch { return { error: `backend HTTP ${r.status}` }; }
+    if (!r.ok) return { error: String(body?.error || `backend HTTP ${r.status}`).slice(0, 160) };
+    return "v" in body ? { v: body.v as T } : { error: "backend returned no data" };
   }
-  let body: any;
-  try { body = await r.json(); } catch { return { error: `backend HTTP ${r.status}` }; }
-  if (!r.ok) return { error: String(body?.error || `backend HTTP ${r.status}`).slice(0, 160) };
-  return "v" in body ? { v: body.v as T } : { error: "backend returned no data" };
+  return { error: lastErr };
 }
 
 /** Thesis feed for a token — the backend maps chain → networkId itself. */

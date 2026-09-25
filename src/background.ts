@@ -357,6 +357,42 @@ async function resolveTicker(symbol: string): Promise<{ address: string; chain: 
   return hit;
 }
 
+// Lenient symbol resolve for the scanner: the deepest-liquidity pair matching
+// the symbol on any supported chain, with its market cap and logo. No floors.
+type DexLite = { address: string; chain: ChainKey; mcap: number | null; logo: string | null; symbol: string };
+const dexLiteCache = new Map<string, { t: number; v: DexLite | null }>();
+async function dexTickerLite(symbol: string): Promise<DexLite | null> {
+  const sym = symbol.replace(/^\$/, "").toUpperCase();
+  if (!sym) return null;
+  const c = dexLiteCache.get(sym);
+  if (c && Date.now() - c.t < 5 * 60_000) return c.v;
+  let out: DexLite | null = null;
+  try {
+    const r = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(sym)}`);
+    if (r.ok) {
+      const pairs: any[] = (await r.json())?.pairs || [];
+      let best: any = null, bestLiq = -1;
+      for (const p of pairs) {
+        if (!chainByDexId(p.chainId)) continue;
+        if ((p.baseToken?.symbol || "").toUpperCase() !== sym || !p.baseToken?.address) continue;
+        const liq = Number(p.liquidity?.usd) || 0;
+        if (liq > bestLiq) { bestLiq = liq; best = p; }
+      }
+      if (best) {
+        const cfg = chainByDexId(best.chainId)!;
+        out = {
+          address: String(best.baseToken.address), chain: cfg.key,
+          mcap: Number(best.marketCap) || Number(best.fdv) || null,
+          logo: best.info?.imageUrl || null,
+          symbol: String(best.baseToken.symbol || sym),
+        };
+      }
+    }
+  } catch { /* offline */ }
+  dexLiteCache.set(sym, { t: Date.now(), v: out });
+  return out;
+}
+
 // OHLCV candles from GeckoTerminal (free public API; indexes Robinhood Chain,
 // including V4 pools by pool id). `token=<ca>` orients candles to OUR token, so
 // base/quote order in the pool doesn't matter. Cached 60s per pool+timeframe.
@@ -435,6 +471,13 @@ async function handle(msg: any): Promise<any> {
     case "STRIX_TICKER": {
       const hit = await resolveTicker(String(msg.symbol || ""));
       return { address: hit?.address || null, chain: hit?.chain || null };
+    }
+    case "STRIX_DEXTICKER": {
+      // Lenient resolve for the timeline scanner: the highest-liquidity pair
+      // that matches the symbol on any chain we know, returned WITH its market
+      // cap and logo. No trade-safety floors — this only decides what to show
+      // (a Buy still opens the strict, safety-checked drawer).
+      return { data: await dexTickerLite(String(msg.symbol || "")) };
     }
     case "STRIX_OPEN_TRADE": {
       await openWallet(`index.html?ca=${encodeURIComponent(msg.ca || "")}`);
@@ -522,6 +565,32 @@ async function handle(msg: any): Promise<any> {
         await fomo.withAvatars(page.items);
       }
       return page;
+    }
+    case "STRIX_FOMO_TOP": {
+      // Lightweight top-N theses for the inline avatar strip under a post: only
+      // the highest-position authors, only their avatars inlined, a light shape.
+      const n = Math.max(1, Math.min(8, Number(msg.n) || 5));
+      const page = await fomo.theses(String(msg.ca), msg.chain ? String(msg.chain) : undefined);
+      if (!("items" in page)) return { items: [], symbol: null };
+      // One entry per author (each user once) — items are already ranked by
+      // position, so the first time we see an author is their biggest position.
+      const seen = new Set<string>();
+      const top: typeof page.items = [];
+      for (const t of page.items) {
+        const k = String(t.authorId || t.authorHandle || "").toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k); top.push(t);
+        if (top.length >= n) break;
+      }
+      if (top.length) await fomo.withAvatars(top);
+      return {
+        symbol: page.symbol,
+        items: top.map((t) => ({
+          authorHandle: t.authorHandle, authorName: t.authorName, avatar: t.avatar,
+          positionUsd: t.positionUsd, positionKind: t.positionKind,
+          pnlPct: t.pnlPct, thesis: String(t.thesis || "").slice(0, 240),
+        })),
+      };
     }
     case "STRIX_FOMO_AVATARS": {
       // Pictures for one page of the thesis feed, asked for as the user pages
@@ -621,7 +690,9 @@ async function handle(msg: any): Promise<any> {
       if (!/^[A-Za-z0-9_]{1,15}$/.test(h)) return null;
       // `deep` is only set when the user actually opens the panel. The check
       // that decides whether to show the button stays on the cheap path.
-      return await traderForX(h, Boolean(msg.deep));
+      // `backendOnly` (timeline author lookups) skips pump.fun + the paid
+      // FomoScan fallback so non-traders cost nothing beyond one backend call.
+      return await traderForX(h, Boolean(msg.deep), Boolean(msg.backendOnly));
     }
     case "STRIX_QUOTE": {
       // A dry run of the buy: what you would receive, and whether the trade
