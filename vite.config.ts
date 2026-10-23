@@ -5,7 +5,7 @@ import { crx, defineManifest } from "@crxjs/vite-plugin";
 const manifest = defineManifest({
   manifest_version: 3,
   name: "Impulse Wallet",
-  version: "2.11.2",
+  version: "2.16.1",
   description: "Non-custodial wallet for Robinhood Chain: hold ETH, trade tokens & tokenized stocks, with safety checks and live charts.",
   action: { default_popup: "index.html", default_title: "Impulse Wallet" },
   background: { service_worker: "src/background.ts", type: "module" },
@@ -49,6 +49,7 @@ const manifest = defineManifest({
     "https://socialimages.pump.fun/*", // callout author avatars (the other host they use)
     "https://v2.bubblemaps.io/*", // holder bubble map (framed)
     "https://app.bubblemaps.io/*",
+    "https://tehcscreener.com/*", // market insights: trench score, launchpads, chains (keyless)
   ],
   content_security_policy: {
     extension_pages:

@@ -128,7 +128,7 @@ const FOMO_MARK_SM = `<img src="${chrome.runtime.getURL("icons/fomo.png")}" widt
  * API that can move on any pump.fun deploy, so the switch has to be flippable
  * without touching the thesis feed.
  */
-const CALLOUTS_ENABLED = true;
+const CALLOUTS_ENABLED = false; // pump.fun removed the public per-token callout endpoint; feature retired
 
 /**
  * Opt-in trace of why a panel did or did not mount.
@@ -3686,6 +3686,14 @@ let traderState: { handle: string; data: any; token: BioToken | null } | null = 
 // bar paints them instantly instead of re-fetching or flashing letters.
 const holdLogoCache: Record<string, string | null | undefined> = {};
 
+// Notable-followers overlay: the biggest verified followers of a profile, from
+// twitterapi.io via the backend. Independent of FOMO (works on any X profile),
+// so it has its own per-handle cache. `null` = fetched, nothing worth showing.
+type FollowerRow = { name: string; userName: string; avatar: string; followers: number; blue: boolean; url: string };
+const topFollowersCache = new Map<string, FollowerRow[] | null>();
+// Account vetting (legit-check) results, per handle. null = fetched, no data.
+const vetCache = new Map<string, any | null>();
+
 function removeTraderDock() {
   document.querySelectorAll(`[${TRADER_ATTR}]`).forEach((el) => el.remove());
   traderHandle = null;
@@ -3824,7 +3832,89 @@ const INLINE_STYLES = `
   .chip .lg img{width:100%;height:100%;object-fit:cover;display:block}
   .chip .sym{font:700 13.5px "ImpulseSans",sans-serif}
   .chip b{font:700 12.5px "ImpulseMono",ui-monospace,monospace;color:#a9b599}
-  @media (max-width:560px){ .chead{gap:12px} .stat .sv{font-size:17px} }`;
+  .folw{width:100%;margin-top:13px;padding:17px 17px 15px;border-radius:21px;
+    background:radial-gradient(120% 120% at 100% 0%, rgba(182,240,60,.11), transparent 52%), linear-gradient(180deg,#0e1308,#090c05);
+    border:1px solid #2d3d1b;box-shadow:0 24px 54px -28px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.035)}
+  .folhdr{display:flex;align-items:center;gap:9px;margin-bottom:14px;
+    font:800 11.5px "ImpulseMono",monospace;letter-spacing:.14em;text-transform:uppercase;color:#b2c494}
+  .folhdr svg{width:17px;height:17px;display:block;color:#b6f03c}
+  .folhdr em{margin-left:auto;font-style:normal;font:700 9.5px "ImpulseMono",monospace;letter-spacing:.09em;color:#5f6e49}
+  .follist{display:flex;flex-direction:column;gap:8px}
+  .folr{display:flex;align-items:center;gap:14px;padding:10px 13px 10px 11px;border-radius:16px;text-decoration:none;
+    background:#10150a;border:1px solid #212c15;transition:border-color .13s,background .13s,transform .13s}
+  .folr:hover{border-color:#47611e;background:#171f0d;transform:translateX(3px)}
+  .folr.top{background:linear-gradient(90deg, rgba(182,240,60,.14), rgba(182,240,60,.015));border-color:#56721f;
+    box-shadow:0 0 0 1px rgba(182,240,60,.14), 0 12px 30px -16px rgba(182,240,60,.45)}
+  .folrk{flex:0 0 auto;width:24px;text-align:center;font:800 15px "ImpulseMono",ui-monospace,monospace;color:#5f6e49}
+  .folr.top .folrk{color:#b6f03c}
+  .folav{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#20261a;
+    display:flex;align-items:center;justify-content:center;color:#b6f03c;font:800 18px "ImpulseSans",sans-serif;
+    box-shadow:0 0 0 1px rgba(182,240,60,.16), 0 7px 18px -9px rgba(0,0,0,.6)}
+  .folmeta{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
+  .foln{display:flex;align-items:center;gap:5px;font:700 16px "ImpulseSans",sans-serif;color:#f1f6ea;line-height:1.1}
+  .foln b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:195px;font-weight:700}
+  .foln .bv{flex:0 0 auto;width:15px;height:15px;display:block;color:#4fb0ff}
+  .folh{font:700 12.5px "ImpulseMono",ui-monospace,monospace;color:#8a977a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .folnum{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+  .folnum b{font:800 19px "ImpulseMono",ui-monospace,monospace;color:#8ce04a;letter-spacing:-.02em;line-height:1}
+  .folnum i{font-style:normal;font:700 8.5px "ImpulseMono",monospace;letter-spacing:.1em;text-transform:uppercase;color:#5f6e49}
+  .folbtn{display:inline-flex;align-items:center;gap:9px;margin-top:12px;padding:12px 19px;border-radius:999px;cursor:pointer;
+    background:linear-gradient(180deg,#151d0c,#0e1308);border:1px solid #35461f;color:#c4f45a;font:800 13.5px "ImpulseSans",sans-serif;
+    box-shadow:0 11px 28px -15px rgba(182,240,60,.55);transition:background .13s,border-color .13s,transform .13s}
+  .folbtn:hover{background:linear-gradient(180deg,#1b240f,#121809);border-color:#56721f;transform:translateY(-1px)}
+  .folbtn:disabled{cursor:default;opacity:.8;transform:none}
+  .folbtn svg{width:16px;height:16px;display:block}
+  .folspin{width:15px;height:15px;border-radius:50%;border:2px solid #2a3a1a;border-top-color:#b6f03c;display:inline-block;animation:folsp .7s linear infinite}
+  @keyframes folsp{to{transform:rotate(360deg)}}
+  .folnone{font:700 13px "ImpulseSans",sans-serif;color:#7d8a67;padding:4px 2px}
+  .folnav{display:flex;align-items:center;gap:11px;margin-top:14px;padding-top:14px;border-top:1px solid #1e2814}
+  .folnav button{display:inline-flex;align-items:center;justify-content:center;width:37px;height:37px;border-radius:12px;cursor:pointer;
+    background:#121809;border:1px solid #2b3a1a;color:#b6f03c;font-size:15px;transition:background .13s,border-color .13s}
+  .folnav button:hover:not(:disabled){background:#18200d;border-color:#56721f}
+  .folnav button:disabled{opacity:.3;cursor:default}
+  .folcount{font:800 13px "ImpulseMono",ui-monospace,monospace;color:#9aa882}
+  .folcount i{font-style:normal;color:#5f6e49}
+  .vetbtn{display:inline-flex;align-items:center;gap:9px;margin-top:12px;padding:12px 19px;border-radius:999px;cursor:pointer;
+    background:linear-gradient(180deg,#151d0c,#0e1308);border:1px solid #35461f;color:#c4f45a;font:800 13.5px "ImpulseSans",sans-serif;
+    box-shadow:0 11px 28px -15px rgba(182,240,60,.55);transition:background .13s,border-color .13s,transform .13s}
+  .vetbtn:hover{background:linear-gradient(180deg,#1b240f,#121809);border-color:#56721f;transform:translateY(-1px)}
+  .vetbtn:disabled{cursor:default;opacity:.8;transform:none}
+  .vetbtn svg{width:16px;height:16px;display:block}
+  .vet{width:100%;margin-top:13px;padding:17px 17px 15px;border-radius:21px;
+    background:radial-gradient(120% 120% at 0% 0%, rgba(182,240,60,.11), transparent 52%), linear-gradient(180deg,#0e1308,#090c05);
+    border:1px solid #2d3d1b;box-shadow:0 24px 54px -28px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.035)}
+  .vethead{display:flex;align-items:center;gap:14px;margin-bottom:13px}
+  .vethead>img,.vethead .vfb{width:50px;height:50px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#20261a;
+    display:flex;align-items:center;justify-content:center;color:#b6f03c;font:800 19px "ImpulseSans",sans-serif;box-shadow:0 0 0 1px rgba(182,240,60,.16)}
+  .vetwho{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:4px}
+  .vetn{display:flex;align-items:center;gap:5px;font:800 16.5px "ImpulseSans",sans-serif;color:#f1f6ea;line-height:1.1}
+  .vetn .bv{width:15px;height:15px;color:#4fb0ff;flex:0 0 auto}
+  .vetn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px;font-weight:800}
+  .veth{font:700 12.5px "ImpulseMono",ui-monospace,monospace;color:#8a977a}
+  .vetscore{flex:0 0 auto;width:58px;height:58px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:3px solid currentColor;background:rgba(0,0,0,.25)}
+  .vetscore b{font:800 20px "ImpulseMono",ui-monospace,monospace;line-height:1;color:currentColor}
+  .vetscore i{font-style:normal;font:700 7px "ImpulseMono",monospace;letter-spacing:.1em;color:#7d8a67;margin-top:2px}
+  .vetverdict{display:inline-flex;align-items:center;gap:6px;margin-bottom:11px;padding:6px 14px;border-radius:999px;
+    border:1px solid currentColor;background:rgba(255,255,255,.03);font:800 11px "ImpulseMono",monospace;letter-spacing:.1em;text-transform:uppercase;color:currentColor}
+  .vetsigs{display:flex;flex-direction:column}
+  .vsig{display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px solid #161f0d}
+  .vsig:last-child{border-bottom:0}
+  .vsig .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .vsig .vl{font:700 13px "ImpulseSans",sans-serif;color:#a9b599}
+  .vsig .vv{margin-left:auto;font:800 12.5px "ImpulseMono",ui-monospace,monospace;text-align:right}
+  .dot.good,.vv.good{color:#8ce04a} .dot.good{background:#8ce04a}
+  .dot.warn,.vv.warn{color:#f0c23c} .dot.warn{background:#f0c23c}
+  .dot.bad,.vv.bad{color:#ff6b6b} .dot.bad{background:#ff6b6b}
+  .vetfoot{display:flex;align-items:center;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid #1e2814}
+  .vetfoot .vflbl{font:700 9.5px "ImpulseMono",monospace;letter-spacing:.09em;text-transform:uppercase;color:#7d8a67}
+  .vetfoot .vfavs{display:inline-flex}
+  .vetfoot .vfavs img,.vetfoot .vfavs span{width:26px;height:26px;border-radius:50%;margin-left:-8px;border:2px solid #0b0f06;object-fit:cover;background:#20261a;
+    display:flex;align-items:center;justify-content:center;color:#b6f03c;font:800 10px "ImpulseSans",sans-serif}
+  .vetfoot .vfavs :first-child{margin-left:0}
+  .vetnote{margin-top:11px;font:700 9.5px "ImpulseMono",monospace;letter-spacing:.04em;color:#5f6e49}
+  .vetspin{width:15px;height:15px;border-radius:50%;border:2px solid #2a3a1a;border-top-color:#b6f03c;display:inline-block;animation:folsp .7s linear infinite}
+  @media (max-width:560px){ .chead{gap:12px} .stat .sv{font-size:17px} .foln b{max-width:130px} }`;
 
 function makeInlineHost(part: string, tag = "span"): { host: HTMLElement; root: HTMLElement } {
   const host = document.createElement(tag);
@@ -3938,6 +4028,155 @@ function paintTraderInline() {
   if (!h || !traderState || traderState.handle.toLowerCase() !== h.toLowerCase()) return;
   injectPortfolioBadge(traderState.data);
   injectStatsCard(traderState.data, traderState.token);
+}
+
+const BV_ICON = `<svg class="bv" viewBox="0 0 24 24" fill="currentColor"><path d="M22.25 12l-2.44-2.79.34-3.69-3.61-.82-1.89-3.2L12 2.96 8.75 1.5 6.86 4.7l-3.61.81.34 3.7L1.25 12l2.44 2.79-.34 3.7 3.61.82 1.89 3.2L12 21.04l3.25 1.46 1.89-3.2 3.61-.82-.34-3.69L22.25 12zm-13.17 4.19l-3.5-3.5 1.41-1.41 2.09 2.08 5.84-5.84 1.41 1.41-7.25 7.26z"/></svg>`;
+const FOLW_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+const fmtFollowers = (n: number) =>
+  n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M"
+  : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "K"
+  : String(n);
+
+function folChip(r: FollowerRow, rank: number): string {
+  const initial = esc((String(r.name || r.userName || "?")[0] || "?").toUpperCase());
+  const av = r.avatar
+    ? `<img class="folav" src="${esc(r.avatar)}" alt="" loading="lazy">`
+    : `<span class="folav">${initial}</span>`;
+  return `<a class="folr${rank === 1 ? " top" : ""}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="@${esc(r.userName)} · ${r.followers.toLocaleString()} followers">` +
+    `<span class="folrk">${rank}</span>${av}` +
+    `<span class="folmeta"><span class="foln"><b>${esc(r.name || r.userName)}</b>${r.blue ? BV_ICON : ""}</span>` +
+    `<span class="folh">@${esc(r.userName)}</span></span>` +
+    `<span class="folnum"><b>${fmtFollowers(r.followers)}</b><i>followers</i></span></a>`;
+}
+
+/** On-demand notable-followers overlay: a button under the bio that, when
+ *  clicked, fetches (once per handle, cached) and expands into the ranked strip.
+ *  On-demand keeps credit spend to profiles a user actually asks about. */
+function paintTopFollowers() {
+  const h = xProfileHandle(location.href);
+  if (!h) return;
+  if (document.querySelector(`[${TRADER_ATTR}="folw"]`)) return;   // already present
+  const cardHost = document.querySelector(`[${TRADER_ATTR}="card"]`) as HTMLElement | null;
+  const anchor = cardHost
+    || document.querySelector('[data-testid="UserProfileHeader_Items"]')
+    || document.querySelector('[data-testid="UserDescription"]')
+    || document.querySelector('[data-testid="UserName"]');
+  if (!anchor) return;
+  const key = h.toLowerCase();
+  const { host, root } = makeInlineHost("folw", "div");
+  const FOL_PAGE = 5;
+  let folPage = 0;
+
+  // One page of the ranked list, biggest first, with prev/next to page through.
+  const renderRows = (rows: FollowerRow[]) => {
+    const pages = Math.max(1, Math.ceil(rows.length / FOL_PAGE));
+    folPage = Math.max(0, Math.min(folPage, pages - 1));
+    const start = folPage * FOL_PAGE;
+    const slice = rows.slice(start, start + FOL_PAGE);
+    const nav = rows.length > FOL_PAGE
+      ? `<div class="folnav"><button class="fprev" ${folPage <= 0 ? "disabled" : ""} title="Bigger">◀</button>` +
+        `<button class="fnext" ${folPage >= pages - 1 ? "disabled" : ""} title="Smaller">▶</button>` +
+        `<span class="folcount">${start + 1}–${start + slice.length} <i>of ${rows.length}</i></span></div>`
+      : "";
+    root.innerHTML = `<div class="folw"><div class="folhdr">${FOLW_ICON}<span>Notable followers</span><em>ranked by reach</em></div>` +
+      `<div class="follist">${slice.map((r, i) => folChip(r, start + i + 1)).join("")}</div>${nav}</div>`;
+    root.querySelector(".fprev")?.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted && folPage > 0) { folPage--; renderRows(rows); } });
+    root.querySelector(".fnext")?.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted && folPage < pages - 1) { folPage++; renderRows(rows); } });
+  };
+  const none = () =>
+    `<div class="folw"><div class="folhdr">${FOLW_ICON}<span>Notable followers</span></div>` +
+    `<div class="folnone">No notable followers found</div></div>`;
+
+  const renderBtn = (loading = false) => {
+    root.innerHTML = `<button class="folbtn"${loading ? " disabled" : ""}>` +
+      `${loading ? `<span class="folspin"></span>` : FOLW_ICON}` +
+      `<span>${loading ? "Finding notable followers…" : "Notable followers"}</span></button>`;
+    if (!loading) root.querySelector(".folbtn")!.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted) load(); });
+  };
+  const paint = (rows: FollowerRow[] | null) => { folPage = 0; if (rows && rows.length) renderRows(rows); else root.innerHTML = none(); };
+  const load = () => {
+    const cached = topFollowersCache.get(key);
+    if (cached !== undefined) { paint(cached); return; }
+    renderBtn(true);
+    send({ type: "STRIX_TOPFOLLOWERS", handle: h }).then((r) => {
+      if (r == null) { renderBtn(false); return; }   // backend error/unreachable — don't cache, allow retry
+      const top: FollowerRow[] = Array.isArray(r.top) ? r.top : [];
+      topFollowersCache.set(key, top.length ? top : null);
+      if (xProfileHandle(location.href)?.toLowerCase() === key) paint(top.length ? top : null);
+    }).catch(() => { renderBtn(false); });
+  };
+
+  // Already fetched this handle? Expand straight to the result; else show button.
+  const cached = topFollowersCache.get(key);
+  if (cached !== undefined) paint(cached);
+  else renderBtn(false);
+
+  anchor.insertAdjacentElement("afterend", host);
+}
+
+const VET_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
+
+/** On-demand account vetting: a button under the bio that, on click, fetches a
+ *  legit-check (age, verification, reach, cadence, engagement, notable-follower
+ *  caliber) and expands into a scored panel. Cached per handle. */
+function paintVet() {
+  const h = xProfileHandle(location.href);
+  if (!h) return;
+  if (document.querySelector(`[${TRADER_ATTR}="vet"]`)) return;      // already present
+  const anchor = (document.querySelector(`[${TRADER_ATTR}="folw"]`) as HTMLElement | null)
+    || (document.querySelector(`[${TRADER_ATTR}="card"]`) as HTMLElement | null)
+    || document.querySelector('[data-testid="UserProfileHeader_Items"]')
+    || document.querySelector('[data-testid="UserDescription"]')
+    || document.querySelector('[data-testid="UserName"]');
+  if (!anchor) return;
+  const key = h.toLowerCase();
+  const { host, root } = makeInlineHost("vet", "div");
+
+  const tier = (s: number) => s >= 60 ? "#8ce04a" : s >= 40 ? "#f0c23c" : s >= 25 ? "#ff9f45" : "#ff6b6b";
+  const panel = (d: any) => {
+    const col = tier(Number(d.score) || 0);
+    const av = d.avatar
+      ? `<img src="${esc(d.avatar)}" alt="">`
+      : `<span class="vfb">${esc((String(d.name || d.userName || "?")[0] || "?").toUpperCase())}</span>`;
+    const sigs = (d.signals || []).map((s: any) =>
+      `<div class="vsig"><span class="dot ${esc(s.level)}"></span><span class="vl">${esc(s.label)}</span><span class="vv ${esc(s.level)}">${esc(s.value)}</span></div>`).join("");
+    const tf = (d.topFollowers || []);
+    const foot = tf.length
+      ? `<div class="vetfoot"><span class="vflbl">Followed by</span><span class="vfavs">` +
+        tf.map((n: any) => n.avatar ? `<img src="${esc(n.avatar)}" alt="" title="@${esc(n.userName)} · ${fmtFollowers(n.followers)}">`
+          : `<span title="@${esc(n.userName)}">${esc((String(n.name || n.userName || "?")[0] || "?").toUpperCase())}</span>`).join("") +
+        `</span></div>`
+      : "";
+    root.innerHTML = `<div class="vet">` +
+      `<div class="vethead">${av}<div class="vetwho"><div class="vetn"><b>${esc(d.name || d.userName)}</b>${d.blue ? BV_ICON : ""}</div>` +
+      `<div class="veth">@${esc(d.userName)}</div></div>` +
+      `<div class="vetscore" style="color:${col}"><b>${Number(d.score) || 0}</b><i>/100</i></div></div>` +
+      `<div class="vetverdict" style="color:${col}">${esc(d.verdict || "")}</div>` +
+      `<div class="vetsigs">${sigs}</div>${foot}` +
+      `<div class="vetnote">Heuristic signal — not financial advice. DYOR.</div></div>`;
+  };
+  const none = () => { root.innerHTML = `<div class="vet"><div class="vetnote" style="color:#7d8a67;font-size:12px">Couldn't vet this account.</div></div>`; };
+  const renderBtn = (loading = false) => {
+    root.innerHTML = `<button class="vetbtn"${loading ? " disabled" : ""}>` +
+      `${loading ? `<span class="vetspin"></span>` : VET_ICON}<span>${loading ? "Vetting account…" : "Vet account"}</span></button>`;
+    if (!loading) root.querySelector(".vetbtn")!.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted) load(); });
+  };
+  const load = () => {
+    const c = vetCache.get(key);
+    if (c !== undefined) { c ? panel(c) : none(); return; }
+    renderBtn(true);
+    send({ type: "STRIX_VET", handle: h }).then((r) => {
+      if (r == null) { renderBtn(false); return; }     // backend error — allow retry
+      vetCache.set(key, r && r.signals ? r : null);
+      if (xProfileHandle(location.href)?.toLowerCase() === key) (r && r.signals ? panel(r) : none());
+    }).catch(() => { renderBtn(false); });
+  };
+
+  const cached = vetCache.get(key);
+  if (cached !== undefined) (cached ? panel(cached) : none());
+  else renderBtn(false);
+
+  anchor.insertAdjacentElement("afterend", host);
 }
 
 /* ── Author overlays: a FOMO PnL + top-3 holdings badge on every tweet whose
@@ -4077,6 +4316,164 @@ function paintTweetAuthors() {
     tweetIO.observe(art);
   });
   injectCachedBadges();
+}
+
+/* ── Cashtag intel: on every tweet that names a $cashtag, an inline trigger
+   that shows which big accounts have tweeted that ticker — ranked by following,
+   one tweet at a time with prev/next. The X search only fires on click
+   (on-demand), and results are cached per symbol. ── */
+const CASH_ATTR = "data-strix-cash";
+type CashEntry = { name: string; userName: string; avatar: string; followers: number; blue: boolean;
+  text: string; likes: number; retweets: number; replies: number; views: number; createdAt: string; url: string };
+const cashCache = new Map<string, CashEntry[] | null>();   // SYMBOL -> entries | null (none)
+const cashInFlight = new Set<string>();
+const CASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 11h-6"/><path d="M20 8v6"/></svg>`;
+const CASH_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,sans-serif;box-sizing:border-box}
+  .ctrig{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;padding:3px 11px 3px 8px;border-radius:999px;cursor:pointer;
+    background:linear-gradient(180deg,#121a0b,#0b1106);border:1px solid #3a4b20;color:#c4f45a;font:800 11.5px "ImpulseSans",sans-serif;line-height:1.4;
+    box-shadow:0 5px 14px -8px rgba(182,240,60,.5);transition:background .12s,border-color .12s}
+  .ctrig:hover{background:linear-gradient(180deg,#19240e,#101708);border-color:#56721f}
+  .ctrig svg{width:14px;height:14px;display:block}
+  .cspin{width:12px;height:12px;border-radius:50%;border:2px solid #2a3a1a;border-top-color:#b6f03c;display:inline-block;vertical-align:middle;animation:csp .7s linear infinite}
+  @keyframes csp{to{transform:rotate(360deg)}}
+  .cpager{margin:13px 0 6px;border-radius:21px;overflow:hidden;
+    background:radial-gradient(120% 110% at 0% 0%, rgba(182,240,60,.11), transparent 50%), linear-gradient(180deg,#0e1308,#090c05);
+    border:1px solid #2d3d1b;box-shadow:0 28px 64px -30px rgba(0,0,0,.92), inset 0 1px 0 rgba(255,255,255,.035)}
+  .cpcap{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid #1d2814;
+    font:800 11.5px "ImpulseMono",monospace;letter-spacing:.14em;text-transform:uppercase;color:#b2c494}
+  .cpcap svg{width:16px;height:16px;color:#b6f03c}
+  .cpcap .sym{color:#c4f45a}
+  .cpcap .x{margin-left:auto;cursor:pointer;color:#6b7a52;font-size:20px;line-height:1;background:none;border:0;padding:0 3px}
+  .cpcap .x:hover{color:#eef3e4}
+  .cpbody{padding:18px 18px 10px}
+  .cprow{display:flex;align-items:center;gap:15px}
+  .cprow>img,.cpfb{width:58px;height:58px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:#20261a;
+    box-shadow:0 0 0 2px rgba(182,240,60,.2), 0 9px 22px -11px rgba(0,0,0,.7)}
+  .cpfb{display:flex;align-items:center;justify-content:center;color:#b6f03c;font:800 23px "ImpulseSans",sans-serif}
+  .cpwho{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:7px}
+  .cpn{display:flex;align-items:center;gap:6px;font:800 18.5px "ImpulseSans",sans-serif;color:#f1f6ea;line-height:1.1}
+  .cpn .bv{width:16px;height:16px;color:#4fb0ff;flex:0 0 auto}
+  .cpn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;font-weight:800}
+  .cph{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .cphandle{font:700 13px "ImpulseMono",ui-monospace,monospace;color:#8a977a}
+  .cpfollow{display:inline-flex;align-items:baseline;gap:5px;padding:4px 11px;border-radius:999px;background:rgba(140,224,74,.13);border:1px solid rgba(140,224,74,.3)}
+  .cpfollow b{font:800 14px "ImpulseMono",ui-monospace,monospace;color:#8ce04a}
+  .cpfollow i{font-style:normal;font:700 9px "ImpulseMono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#6f8a4a}
+  .cpopen{flex:0 0 auto;align-self:center;display:inline-flex;align-items:center;gap:5px;padding:10px 16px;border-radius:999px;text-decoration:none;
+    background:#b6f03c;color:#0a1005;font:800 13px "ImpulseSans",sans-serif;box-shadow:0 11px 26px -13px rgba(182,240,60,.75)}
+  .cpopen:hover{background:#c9ff52}
+  .cptxt{margin:16px 0 14px;padding:13px 16px;border-radius:14px;background:#0a0e05;border:1px solid #1d2814;border-left:3px solid #56721f;
+    font:600 16px/1.5 "ImpulseSans",sans-serif;color:#dde7d0;white-space:pre-wrap;word-break:break-word}
+  .cpstats{display:flex;gap:9px;flex-wrap:wrap}
+  .cpstat{display:inline-flex;align-items:baseline;gap:6px;padding:6px 13px;border-radius:999px;background:#11150a;border:1px solid #212c15;
+    font:700 12px "ImpulseMono",ui-monospace,monospace;color:#8a977a}
+  .cpstat b{color:#c4d2ad;font-size:13.5px}
+  .cpnav{display:flex;align-items:center;gap:11px;padding:13px 16px 15px;border-top:1px solid #1d2814;margin-top:10px}
+  .cpnav button{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;border-radius:12px;cursor:pointer;
+    background:#121809;border:1px solid #2b3a1a;color:#b6f03c;font-size:15px;transition:background .13s,border-color .13s}
+  .cpnav button:hover:not(:disabled){background:#18200d;border-color:#56721f}
+  .cpnav button:disabled{opacity:.3;cursor:default}
+  .cpcount{font:800 13px "ImpulseMono",ui-monospace,monospace;color:#9aa882}
+  .cpcount i{font-style:normal;color:#5f6e49}
+  .cprank{margin-left:auto;display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;
+    background:rgba(182,240,60,.1);border:1px solid rgba(182,240,60,.26);
+    font:800 10px "ImpulseMono",monospace;letter-spacing:.07em;text-transform:uppercase;color:#b6f03c}
+  .cpnone{padding:22px;font:700 13.5px "ImpulseSans",sans-serif;color:#7d8a67;text-align:center}`;
+
+function makeCashHost(part: string, tag = "span"): { host: HTMLElement; root: HTMLElement } {
+  const host = document.createElement(tag);
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(CASH_ATTR, part);
+  host.style.cssText = tag === "span" ? "all:initial;display:inline-flex;vertical-align:middle;margin-left:4px" : "all:initial;display:block";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) => host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = CASH_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  return { host, root };
+}
+
+/** The ranked "big names on $SYM" pager, inserted inline under the tweet text.
+ *  Clicking the same ticker's trigger again collapses it. */
+function openCashPager(art: Element, sym: string, _trigRoot: HTMLElement) {
+  const prior = art.querySelector(`[${CASH_ATTR}="pager"]`);
+  if (prior) {
+    const was = prior.getAttribute("data-sym");
+    prior.remove();
+    if (was === sym) return;               // same trigger again → toggle closed
+  }
+  const anchorEl = (art.querySelector('[data-testid="tweetText"]') as HTMLElement) || art;
+  const { host, root } = makeCashHost("pager", "div");
+  host.setAttribute("data-sym", sym);
+  let idx = 0;
+  const close = () => host.remove();
+  const bindClose = () => root.querySelector(".x")?.addEventListener("click", (ev) => { if ((ev as MouseEvent).isTrusted) close(); });
+  const cap = `<div class="cpcap">${CASH_ICON}<span>Big names on <span class="sym">$${esc(sym)}</span></span><button class="x" title="Close">×</button></div>`;
+
+  const draw = (items: CashEntry[]) => {
+    const e = items[idx];
+    const av = e.avatar ? `<img src="${esc(e.avatar)}" alt="">` : `<span class="cpfb">${esc((String(e.name || e.userName || "?")[0] || "?").toUpperCase())}</span>`;
+    const views = e.views ? `<span class="cpstat"><b>${fmtCount(e.views)}</b> views</span>` : "";
+    root.innerHTML = `<div class="cpager">${cap}<div class="cpbody">` +
+      `<div class="cprow">${av}<div class="cpwho"><div class="cpn"><b>${esc(e.name || e.userName)}</b>${e.blue ? BV_ICON : ""}</div>` +
+      `<div class="cph"><span class="cphandle">@${esc(e.userName)}</span><span class="cpfollow"><b>${fmtFollowers(e.followers)}</b><i>followers</i></span></div></div>` +
+      `${e.url ? `<a class="cpopen" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}</div>` +
+      `<div class="cptxt">${esc(e.text) || "<i>(no text)</i>"}</div>` +
+      `<div class="cpstats"><span class="cpstat"><b>${fmtCount(e.likes)}</b> likes</span><span class="cpstat"><b>${fmtCount(e.retweets)}</b> RT</span><span class="cpstat"><b>${fmtCount(e.replies)}</b> replies</span>${views}</div>` +
+      `</div><div class="cpnav"><button class="prev" ${idx <= 0 ? "disabled" : ""} title="Bigger following">◀</button>` +
+      `<button class="next" ${idx >= items.length - 1 ? "disabled" : ""} title="Smaller following">▶</button>` +
+      `<span class="cpcount">${idx + 1} <i>/ ${items.length}</i></span><span class="cprank">#${idx + 1} by following</span></div></div>`;
+    bindClose();
+    root.querySelector(".prev")?.addEventListener("click", (ev) => { if ((ev as MouseEvent).isTrusted && idx > 0) { idx--; draw(items); } });
+    root.querySelector(".next")?.addEventListener("click", (ev) => { if ((ev as MouseEvent).isTrusted && idx < items.length - 1) { idx++; draw(items); } });
+  };
+  const loading = () => { root.innerHTML = `<div class="cpager">${cap}<div class="cpnone"><span class="cspin"></span> searching X…</div></div>`; bindClose(); };
+  const none = () => { root.innerHTML = `<div class="cpager">${cap}<div class="cpnone">No notable tweets found for $${esc(sym)}</div></div>`; bindClose(); };
+  const show = (items: CashEntry[] | null) => { idx = 0; if (items && items.length) draw(items); else none(); };
+
+  anchorEl.insertAdjacentElement("afterend", host);
+
+  const cached = cashCache.get(sym);
+  if (cached !== undefined) { show(cached); return; }
+  loading();
+  cashInFlight.add(sym);
+  send({ type: "STRIX_CASHTAG_TWEETS", symbol: sym }).then((r) => {
+    if (r == null) { if (host.isConnected) none(); return; }   // backend error — don't cache, reopening retries
+    const items: CashEntry[] = Array.isArray(r.items) ? r.items : [];
+    cashCache.set(sym, items.length ? items : null);
+    if (host.isConnected) show(items.length ? items : null);
+  }).catch(() => { if (host.isConnected) none(); }).finally(() => { cashInFlight.delete(sym); });
+}
+
+/** Append a "Big names" trigger after each distinct cashtag link in a tweet.
+ *  Idempotent (skips a cashtag whose next sibling is already our trigger), so
+ *  it survives X recycling tweet nodes as the feed scrolls. */
+function injectCashTriggers(art: Element) {
+  const tt = art.querySelector('[data-testid="tweetText"]');
+  if (!tt) return;
+  const seen = new Set<string>();
+  for (const a of [...tt.querySelectorAll("a")]) {
+    const txt = (a.textContent || "").trim();
+    if (!/^\$[A-Za-z][A-Za-z0-9]{0,14}$/.test(txt)) continue;
+    const sym = txt.slice(1).toUpperCase();
+    if (seen.has(sym)) continue;                      // one trigger per ticker per tweet
+    seen.add(sym);
+    const next = a.nextElementSibling as HTMLElement | null;
+    if (next && next.getAttribute?.(CASH_ATTR) === `trig:${sym}`) continue;   // already present
+    const { host, root } = makeCashHost(`trig:${sym}`, "span");
+    root.innerHTML = `<span class="ctrig" title="Big accounts tweeting $${esc(sym)}">${CASH_ICON}<span>Big names</span></span>`;
+    root.firstElementChild!.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted) openCashPager(art, sym, root); });
+    a.insertAdjacentElement("afterend", host);
+  }
+}
+
+/** Run the cashtag triggers across the tweets currently in the DOM. Cheap (no
+ *  lookups) and deduped, so it's safe to call on every scan tick. */
+function paintCashtags() {
+  document.querySelectorAll("article").forEach((art) => injectCashTriggers(art));
 }
 
 /** Holdings per page. Eight fills the panel without needing a scroll. */
@@ -5163,23 +5560,273 @@ async function enrichScanRows(p: { root: HTMLElement }, token: number): Promise<
   await Promise.all([worker(), worker(), worker(), worker()]);
 }
 
+/* ── Market Insights: a bottom-right button (opposite Scan tickers) that opens
+   a market-pulse overlay — the Trench score, hottest launchpads, and chains —
+   from tehcscreener (keyless, daily). Fetched via the background, cached. ── */
+const INSIGHTS_ATTR = "data-strix-mkt";
+const MKT_BANDS: Record<string, [string, string]> = {
+  ded: ["#6b7a52", "Dead"], cold: ["#4fb0ff", "Cold"], active: ["#8ce04a", "Active"],
+  hot: ["#f0a23c", "Hot"], euphoric: ["#ff5c8a", "Euphoric"],
+};
+const MKT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2.5-7 5 14 2.5-7H21"/></svg>`;
+const usd = (n: number) => {
+  n = Number(n) || 0;
+  return "$" + (n >= 1e9 ? (n / 1e9).toFixed(2) + "B" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(Math.round(n)));
+};
+const mktCount = (n: number) => {
+  n = Number(n) || 0;
+  return n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K" : String(Math.round(n));
+};
+
+const MKT_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:600;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-600.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  @font-face{font-family:"ImpulseMono";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexmono-700.woff2")}") format("woff2")}
+  *{font-family:"ImpulseSans",-apple-system,"Segoe UI",Roboto,sans-serif;box-sizing:border-box;margin:0}
+  .mkbd{position:fixed;inset:0;z-index:2147483040;display:flex;align-items:flex-start;justify-content:center;
+    padding:48px 16px;background:rgba(4,6,3,.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+  .mkcard{width:100%;max-width:580px;max-height:calc(100vh - 96px);overflow:auto;border-radius:24px;
+    background:radial-gradient(130% 90% at 100% 0%, rgba(182,240,60,.1), transparent 46%), linear-gradient(180deg,#0e1308,#080b04);
+    border:1px solid #2d3d1b;box-shadow:0 40px 90px -30px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.04)}
+  .mkcard::-webkit-scrollbar{width:9px} .mkcard::-webkit-scrollbar-thumb{background:#223018;border-radius:9px}
+  .mkhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:11px;padding:18px 20px;
+    background:linear-gradient(180deg,#0f1409,rgba(15,20,9,.86));backdrop-filter:blur(6px);border-bottom:1px solid #1d2814}
+  .mkhead .ico{width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    background:#141c0b;border:1px solid #35461f;color:#b6f03c}
+  .mkhead .ico svg{width:21px;height:21px}
+  .mktitle b{display:block;font:800 18px "ImpulseSans",sans-serif;color:#f1f6ea;letter-spacing:-.01em}
+  .mktitle span{display:block;font:700 10px "ImpulseMono",monospace;letter-spacing:.09em;text-transform:uppercase;color:#7d8a67;margin-top:3px}
+  .mkx{margin-left:auto;cursor:pointer;width:34px;height:34px;border-radius:10px;background:#141c0b;border:1px solid #2b3a1a;color:#9aa882;font-size:19px;line-height:1}
+  .mkx:hover{color:#eef3e4;border-color:#4c651f}
+  .mkbody{padding:18px 20px 22px}
+  .mkload{padding:60px 0;text-align:center;color:#7d8a67;font:700 13px "ImpulseSans",sans-serif}
+  .mkspinb{width:26px;height:26px;border-radius:50%;border:3px solid #223018;border-top-color:#b6f03c;margin:0 auto 14px;animation:folsp .8s linear infinite}
+  /* trench hero */
+  .mktr{--c:#8ce04a;border-radius:18px;padding:18px;background:linear-gradient(180deg, color-mix(in srgb, var(--c) 10%, transparent), transparent), #0a0e05;
+    border:1px solid #223018;box-shadow:0 0 40px -18px var(--c)}
+  .mktrow{display:flex;align-items:center;gap:18px}
+  .mkbig{flex:0 0 auto;display:flex;align-items:baseline;gap:3px;color:var(--c)}
+  .mkbig b{font:800 52px "ImpulseMono",ui-monospace,monospace;line-height:.9;letter-spacing:-.03em}
+  .mkbig i{font-style:normal;font:800 15px "ImpulseMono",monospace;color:#5f6e49}
+  .mkbandw{flex:1 1 auto;min-width:0}
+  .mkbandlbl{font:800 15px "ImpulseSans",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--c)}
+  .mkbandsub{font:700 10.5px "ImpulseMono",monospace;letter-spacing:.05em;text-transform:uppercase;color:#7d8a67;margin-top:4px}
+  .mkmeter{margin-top:10px;height:9px;border-radius:999px;background:#161f0d;overflow:hidden;border:1px solid #223018}
+  .mkmeter span{display:block;height:100%;border-radius:999px;background:var(--c);box-shadow:0 0 12px -2px var(--c)}
+  .mkspark{display:block;width:100%;height:42px;margin-top:14px}
+  .mkcomp{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+  .mkchipc{flex:1 1 0;min-width:0;padding:9px 12px;border-radius:12px;background:#10150a;border:1px solid #212c15}
+  .mkchipc b{display:block;font:800 15px "ImpulseMono",ui-monospace,monospace;color:#dbe6cc}
+  .mkchipc span{display:block;font:700 9px "ImpulseMono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#7d8a67;margin-top:3px}
+  .mkchipc em{font-style:normal;color:#8ce04a}
+  /* sections */
+  .mksec{margin-top:22px}
+  .mksechd{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+  .mksechd h3{font:800 12px "ImpulseMono",monospace;letter-spacing:.14em;text-transform:uppercase;color:#b2c494}
+  .mkwin{margin-left:auto;display:inline-flex;gap:3px;padding:3px;border-radius:999px;background:#10150a;border:1px solid #212c15}
+  .mkwin button{padding:5px 11px;border-radius:999px;border:0;cursor:pointer;background:none;color:#7d8a67;font:800 11px "ImpulseMono",monospace;letter-spacing:.04em}
+  .mkwin button.on{background:#b6f03c;color:#0a1005}
+  .mkbars{display:flex;flex-direction:column;gap:9px}
+  .mkbar{display:flex;align-items:center;gap:12px}
+  .mkbn{flex:0 0 150px;display:flex;align-items:center;gap:9px;min-width:0}
+  .mkbchip{width:26px;height:26px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#0a1005;font:800 12px "ImpulseSans",sans-serif;overflow:hidden}
+  .mkbchip img{width:100%;height:100%;object-fit:cover;border-radius:7px;display:block}
+  .mkbn .nm{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .mkbn .nm b{font:800 13.5px "ImpulseSans",sans-serif;color:#eef3e4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mkbn .nm em{font-style:normal;font:700 9px "ImpulseMono",monospace;letter-spacing:.06em;text-transform:uppercase;color:#6f7d57}
+  .mktrack{flex:1 1 auto;height:26px;border-radius:8px;background:#10150a;border:1px solid #1a2410;overflow:hidden;position:relative}
+  .mktrack span{position:absolute;inset:0 auto 0 0;border-radius:8px;opacity:.9}
+  .mkbv{flex:0 0 auto;text-align:right;display:flex;flex-direction:column;gap:2px}
+  .mkbv b{font:800 14px "ImpulseMono",ui-monospace,monospace;color:#dbe6cc}
+  .mkbv i{font-style:normal;font:700 9.5px "ImpulseMono",monospace;color:#6f7d57}
+  .mkfoot{margin-top:20px;text-align:center;font:700 9.5px "ImpulseMono",monospace;letter-spacing:.05em;color:#55634180}
+  .mkerr{padding:40px 0;text-align:center;color:#7d8a67;font:700 13px "ImpulseSans",sans-serif}
+  @media (max-width:520px){ .mkbn{flex-basis:108px} .mkbig b{font-size:42px} }`;
+
+const MKT_BTN_STYLES = `
+  @font-face{font-family:"ImpulseSans";font-weight:700;font-display:swap;src:url("${chrome.runtime.getURL("fonts/plexsans-700.woff2")}") format("woff2")}
+  .mkfab{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border-radius:999px;cursor:pointer;
+    border:1px solid #35461f;background:linear-gradient(180deg,#0f1608,#0a0e05);color:#b6f03c;
+    font:700 13px "ImpulseSans",-apple-system,sans-serif;box-shadow:0 12px 34px -12px rgba(0,0,0,.85), 0 0 22px -12px rgba(182,240,60,.5);
+    transition:background .12s,transform .12s,border-color .12s}
+  .mkfab:hover{background:linear-gradient(180deg,#141d0a,#0d1207);border-color:#56721f;transform:translateY(-1px)}
+  .mkfab svg{display:block;width:17px;height:17px;flex:0 0 auto}`;
+
+// Real launchpad/chain logos, proxied to data URIs (x.com CSP blocks a direct
+// tehcscreener <img>), cached per URL for the session. null = tried, missing.
+const mktLogoCache = new Map<string, string | null>();
+function fillMktLogos(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>("[data-mklogo]").forEach((el) => {
+    const url = el.getAttribute("data-mklogo") || "";
+    if (!url) return;
+    const cached = mktLogoCache.get(url);
+    if (cached) { el.innerHTML = `<img src="${cached}" alt="">`; el.style.background = "#0a0e05"; return; }
+    if (cached === null) return;                 // known-missing — keep the colored initial
+    send({ type: "STRIX_IMAGE", url }).then((r) => {
+      const d = r?.data && String(r.data).startsWith("data:image/") ? String(r.data) : null;
+      mktLogoCache.set(url, d);
+      if (d && el.isConnected) { el.innerHTML = `<img src="${d}" alt="">`; el.style.background = "#0a0e05"; }
+    }).catch(() => mktLogoCache.set(url, null));
+  });
+}
+
+function mktSpark(vals: number[], color: string): string {
+  if (vals.length < 2) return "";
+  const w = 540, h = 42, min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
+  const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * w).toFixed(1)},${(h - ((v - min) / rng) * (h - 8) - 4).toFixed(1)}`).join(" ");
+  return `<svg class="mkspark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">` +
+    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity=".92"/></svg>`;
+}
+
+function mountInsightsButton() {
+  if (document.querySelector(`[${INSIGHTS_ATTR}="btn"]`)) return;
+  const host = document.createElement("div");
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(INSIGHTS_ATTR, "btn");
+  host.style.cssText = "all:initial;position:fixed;right:16px;bottom:16px;z-index:2147483000;";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) => host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = MKT_BTN_STYLES; sh.appendChild(st);
+  const btn = document.createElement("button");
+  btn.className = "mkfab";
+  btn.innerHTML = `${MKT_ICON}<span>Market insights</span>`;
+  btn.title = "Market pulse — trench score, launchpads & chains";
+  btn.addEventListener("click", (e) => { if (e.isTrusted) openInsights(); });
+  sh.appendChild(btn);
+  document.body.appendChild(host);
+}
+
+let mktWindow = "7d";
+function openInsights() {
+  document.querySelectorAll(`[${INSIGHTS_ATTR}="pop"]`).forEach((e) => e.remove());
+  const host = document.createElement("div");
+  host.setAttribute(HOST_ATTR, "");
+  host.setAttribute(INSIGHTS_ATTR, "pop");
+  host.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483040;";
+  ["click", "pointerdown", "mousedown", "mouseup", "keydown"].forEach((ev) => host.addEventListener(ev, (e) => e.stopPropagation()));
+  const sh = host.attachShadow({ mode: "closed" });
+  const st = document.createElement("style"); st.textContent = MKT_STYLES; sh.appendChild(st);
+  const root = document.createElement("div"); sh.appendChild(root);
+  document.body.appendChild(host);
+
+  const close = () => { host.remove(); window.removeEventListener("keydown", onKey, true); };
+  const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+  window.addEventListener("keydown", onKey, true);
+
+  const shell = (inner: string) =>
+    `<div class="mkbd"><div class="mkcard"><div class="mkhead"><div class="ico">${MKT_ICON}</div>` +
+    `<div class="mktitle"><b>Market Insights</b><span>degen market pulse · tehcscreener</span></div>` +
+    `<button class="mkx" title="Close">×</button></div><div class="mkbody">${inner}</div></div></div>`;
+  const wire = () => {
+    const bd = root.querySelector(".mkbd") as HTMLElement;
+    bd?.addEventListener("click", (e) => { if (e.target === bd) close(); });
+    root.querySelector(".mkx")?.addEventListener("click", (e) => { if ((e as MouseEvent).isTrusted) close(); });
+  };
+
+  const barRows = (rows: { name: string; sub: string; val: number; color: string; logo?: string }[]) => {
+    const max = Math.max(1, ...rows.map((r) => r.val));
+    return `<div class="mkbars">` + rows.map((r) => {
+      const pct = Math.max(3, (r.val / max) * 100).toFixed(1);
+      const init = (r.name[0] || "?").toUpperCase();
+      const chip = `<span class="mkbchip" style="background:${r.color}"${r.logo ? ` data-mklogo="${esc(r.logo)}"` : ""}>${esc(init)}</span>`;
+      return `<div class="mkbar"><span class="mkbn">${chip}` +
+        `<span class="nm"><b>${esc(r.name)}</b><em>${esc(r.sub)}</em></span></span>` +
+        `<span class="mktrack"><span style="width:${pct}%;background:linear-gradient(90deg, color-mix(in srgb, ${r.color} 70%, #0a0e05), ${r.color})"></span></span>` +
+        `<span class="mkbv"><b>${usd(r.val)}</b></span></div>`;
+    }).join("") + `</div>`;
+  };
+
+  const render = (d: any) => {
+    const t = d?.trench?.today;
+    const band = String(t?.band || "active").toLowerCase();
+    const [col, label] = MKT_BANDS[band] || MKT_BANDS.active;
+    const score = Number(t?.score) || 0;
+    const hist = (d?.trench?.history || []).slice(-60).map((x: any) => Number(x?.score) || 0);
+    const comp = t?.components || {};
+    const compChip = (c: any, lbl: string) => c
+      ? `<div class="mkchipc"><b>${usd(c.value).replace("$", lbl === "Tokens launched" ? "" : "$")}</b><span>${esc(lbl)} · <em>${Math.round(c.percentile)}th pct</em></span></div>`
+      : "";
+    const trench = `<div class="mktr" style="--c:${col}"><div class="mktrow">` +
+      `<div class="mkbig"><b>${score}</b><i>/100</i></div>` +
+      `<div class="mkbandw"><div class="mkbandlbl">${esc(label)}</div>` +
+      `<div class="mkbandsub">Trench score${t?.day ? ` · ${esc(t.day)}` : ""}</div>` +
+      `<div class="mkmeter"><span style="width:${score}%"></span></div></div></div>` +
+      mktSpark(hist, col) +
+      `<div class="mkcomp">` +
+        compChip(comp.pad_volume, "Launchpad volume") +
+        (comp.tokens_launched ? `<div class="mkchipc"><b>${mktCount(comp.tokens_launched.value)}</b><span>Tokens launched · <em>${Math.round(comp.tokens_launched.percentile)}th pct</em></span></div>` : "") +
+      `</div></div>`;
+
+    const pads = (d?.launchpads?.pads || []).slice(0, 8).map((p: any, i: number) => ({
+      name: String(p.display_name || p.pad || "—"),
+      sub: `${String(p.chain || "")} · ${mktCount(p.tokens_launched)} launches`,
+      val: Number(p.volume_usd) || 0,
+      color: ["#b6f03c", "#8ce04a", "#5fd0e0", "#f0a23c", "#ff7ac2", "#9b8cff", "#4fb0ff", "#e0d24f"][i % 8],
+      logo: p.logo_path ? `https://tehcscreener.com${p.logo_path}` : "",
+    }));
+    const chains = (d?.chains?.chains || []).slice()
+      .sort((a: any, b: any) => (b?.latest?.dex_volume_usd || 0) - (a?.latest?.dex_volume_usd || 0))
+      .slice(0, 8).map((c: any) => ({
+        name: String(c.display_name || c.chain || "—"),
+        sub: `${mktCount(c?.latest?.active_wallets)} wallets · ${mktCount(c?.latest?.dex_trades)} trades`,
+        val: Number(c?.latest?.dex_volume_usd) || 0,
+        color: /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(c.color || "")) ? c.color : "#6947e6",
+        logo: c.logo_path ? `https://tehcscreener.com${c.logo_path}` : "",
+      }));
+
+    const winBtn = (w: string) => `<button class="${mktWindow === w ? "on" : ""}" data-win="${w}">${w.toUpperCase()}</button>`;
+    const padsSec = `<div class="mksec"><div class="mksechd"><h3>Launchpads</h3>` +
+      `<div class="mkwin">${winBtn("1d")}${winBtn("7d")}${winBtn("30d")}</div></div>` +
+      (pads.length ? barRows(pads) : `<div class="mkerr">No launchpad data.</div>`) + `</div>`;
+    const chainsSec = `<div class="mksec"><div class="mksechd"><h3>Chains · DEX volume</h3></div>` +
+      (chains.length ? barRows(chains) : `<div class="mkerr">No chain data.</div>`) + `</div>`;
+
+    root.innerHTML = shell(trench + padsSec + chainsSec + `<div class="mkfoot">Data via tehcscreener · updated daily</div>`);
+    wire();
+    fillMktLogos(root);
+    root.querySelectorAll<HTMLElement>(".mkwin button").forEach((b) => b.addEventListener("click", (e) => {
+      if (!(e as MouseEvent).isTrusted) return;
+      const w = b.dataset.win!; if (w === mktWindow) return;
+      mktWindow = w; load();
+    }));
+  };
+
+  const load = () => {
+    root.innerHTML = shell(`<div class="mkload"><div class="mkspinb"></div>Reading the market…</div>`);
+    wire();
+    send({ type: "STRIX_MARKET", window: mktWindow }).then((d) => {
+      if (!d || (!d.trench && !d.launchpads && !d.chains)) { root.innerHTML = shell(`<div class="mkerr">Couldn't load market data. Try again shortly.</div>`); wire(); return; }
+      render(d);
+    }).catch(() => { root.innerHTML = shell(`<div class="mkerr">Couldn't load market data.</div>`); wire(); });
+  };
+  load();
+}
+
 function boot() {
   dlog("boot on", location.href, "| readyState =", document.readyState);
   scan();
   mountScanButton();
+  mountInsightsButton();
   let t: number | undefined;
-  new MutationObserver(() => { if (t) clearTimeout(t); t = window.setTimeout(() => { scan(); paintTraderInline(); paintTweetAuthors(); }, 400); }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { if (t) clearTimeout(t); t = window.setTimeout(() => { scan(); paintTraderInline(); paintTopFollowers(); paintVet(); paintTweetAuthors(); paintCashtags(); }, 400); }).observe(document.body, { childList: true, subtree: true });
 
   // The URL dock runs independently of the text scan, so it still appears on a
   // page whose body never spells the address out, and it follows SPA routing.
   void syncDock();
   void syncTraderDock();
+  paintTopFollowers();
+  paintVet();
   paintTweetAuthors();
+  paintCashtags();
   watchUrl(() => {
     void syncDock();
     void syncTraderDock();
+    paintTopFollowers();
+    paintVet();
     mountScanButton();                  // survives SPA route changes
+    mountInsightsButton();
     paintTweetAuthors();
+    paintCashtags();
   });
 }
 

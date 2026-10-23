@@ -258,6 +258,28 @@ function fromFomo(it: any): Thesis {
 }
 
 /**
+ * One thesis per author — their most recent.
+ *
+ * A trader can post several theses on the same token over time; showing all of
+ * them repeats the author and, because the list is ranked by position size
+ * rather than date, often surfaces an older post instead of what they think
+ * now. Collapsing to the latest per author (by createdAt) means each user
+ * appears once, represented by their current take. A missing date sorts oldest
+ * so a dated thesis always wins over an undated one for the same author.
+ */
+function latestPerAuthor(items: Thesis[]): Thesis[] {
+  const best = new Map<string, Thesis>();
+  const order: string[] = [];
+  for (const t of items) {
+    const key = (t.authorId || t.authorHandle || t.id).toLowerCase();
+    const cur = best.get(key);
+    if (!cur) { best.set(key, t); order.push(key); continue; }
+    if ((t.createdAt ?? -1) > (cur.createdAt ?? -1)) best.set(key, t);
+  }
+  return order.map((k) => best.get(k)!);
+}
+
+/**
  * The backend's FOMO feed for a token, ranked like the FomoScan path.
  * Returns null (not an error) when the backend call fails, so theses() falls
  * through to FomoScan cleanly; on success the backend is authoritative, and an
@@ -274,6 +296,7 @@ async function thesesViaFomo(ca: string, chainHint?: string): Promise<ThesisPage
   const symbol = arr[0]?.ticker ? String(arr[0].ticker) : null;
   const seen = new Set<string>();
   items = items.filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)));
+  items = latestPerAuthor(items);                 // one per author — their latest
   items.sort((a, z) =>
     (z.positionUsd ?? 0) - (a.positionUsd ?? 0) ||
     (z.likeCount ?? 0) - (a.likeCount ?? 0) ||
@@ -336,6 +359,8 @@ export async function theses(ca: string, chainHint?: string): Promise<ThesisPage
   // A token address can be shaped the same on two chains, so a Solana token's
   // commentary must not appear in a Robinhood panel.
   if (chainHint) items = items.filter((t) => !t.chain || t.chain === chainHint);
+
+  items = latestPerAuthor(items);                 // one per author — their latest
 
   items.sort((a, z) =>
     (z.positionUsd ?? 0) - (a.positionUsd ?? 0) ||

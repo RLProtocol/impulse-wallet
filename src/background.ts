@@ -13,7 +13,7 @@ import { getUnlockedPk, activeAccount, lock as lockWallet } from "./lib/keystore
 import { nativeBalance, tokenBalance, signAndSend, waitReceipt } from "./lib/wallet";
 import { addToken, untrackIfEmpty } from "./lib/tokens";
 import * as fomo from "./lib/fomo";
-import * as callouts from "./lib/callouts";
+import { topFollowers, cashtagTweets, vetAccount } from "./lib/fomoBackend";
 import { traderForX } from "./lib/trader";
 import * as impulse from "./lib/impulse";
 import * as copyd from "./lib/copyd";
@@ -36,6 +36,25 @@ const BUILTIN_ORIGINS = new Set(["https://x.com", "https://twitter.com"]);
 /** Hosts allowed to serve an image the panel will inline. Every one is already
  *  in host_permissions; listing them again keeps a metadata URL from steering
  *  a fetch somewhere else. */
+// Market Insights (tehcscreener) — keyless, CORS-open, daily data. Fetched here
+// (not the content script) so it goes through the extension's host permission,
+// and cached per window since it only changes once a day.
+const MKT_BASE = "https://tehcscreener.com/api/v1";
+const mktCache = new Map<string, { t: number; v: any }>();
+async function marketInsights(window: string) {
+  const hit = mktCache.get(window);
+  if (hit && Date.now() - hit.t < 30 * 60_000) return hit.v;
+  const j = async (p: string) => { try { const r = await fetch(MKT_BASE + p); return r.ok ? await r.json() : null; } catch { return null; } };
+  const [trench, launchpads, chains] = await Promise.all([
+    j("/trench"),
+    j(`/launchpads?window=${encodeURIComponent(window)}`),
+    j("/chains"),
+  ]);
+  const v = { window, trench, launchpads, chains };
+  mktCache.set(window, { t: Date.now(), v });
+  return v;
+}
+
 const IMAGE_HOSTS = new Set([
   "dd.dexscreener.com",
   "cdn.dexscreener.com",
@@ -45,6 +64,7 @@ const IMAGE_HOSTS = new Set([
   "pump.mypinata.cloud",
   "socialimages.pump.fun",
   "prod-fomo-profile-pics.s3.amazonaws.com",
+  "tehcscreener.com",   // launchpad + chain logos for Market Insights
 ]);
 const SITES_KEY = "strix.sites.v1";
 
@@ -605,24 +625,6 @@ async function handle(msg: any): Promise<any> {
       for (const r of rows) if (r.avatar) avatars[r.authorHandle] = r.avatar;
       return { avatars };
     }
-    case "STRIX_CALLOUTS": {
-      // Pump.fun callouts. Must be proxied: their CORS header names pump.fun's
-      // own origin, so a content-script fetch is refused outright.
-      const page = await callouts.callouts(String(msg.ca));
-      if ("items" in page && page.items.length) await callouts.withAvatars(page.items.slice(0, 5));
-      return page;
-    }
-    case "STRIX_CALLOUT_AVATARS": {
-      // Pictures for one page, asked for as the user pages through.
-      const urls: string[] = (Array.isArray(msg.urls) ? msg.urls : [])
-        .slice(0, 10)
-        .map((u: unknown) => String(u));
-      const rows = urls.map((u: string) => ({ avatarUrl: u, avatar: null as string | null }));
-      await callouts.withAvatars(rows as any);
-      const out: Record<string, string> = {};
-      for (const r of rows) if (r.avatar) out[r.avatarUrl] = r.avatar;
-      return { avatars: out };
-    }
     // ── Impulse Thesis (our own community feed) ────────────────────────────
     // The author is the active wallet's EVM address — attached here, never taken
     // from the page. The holder-gate is trusted from the panel (which only shows
@@ -693,6 +695,34 @@ async function handle(msg: any): Promise<any> {
       // `backendOnly` (timeline author lookups) skips pump.fun + the paid
       // FomoScan fallback so non-traders cost nothing beyond one backend call.
       return await traderForX(h, Boolean(msg.deep), Boolean(msg.backendOnly));
+    }
+    case "STRIX_TOPFOLLOWERS": {
+      // A profile's biggest ("notable") followers — verified followers ranked by
+      // their own follower count, from twitterapi.io via the backend.
+      const h = String(msg.handle || "").replace(/^@/, "");
+      if (!/^[A-Za-z0-9_]{1,15}$/.test(h)) return null;
+      const r = await topFollowers(h);
+      return "v" in r ? r.v : null;
+    }
+    case "STRIX_CASHTAG_TWEETS": {
+      // Big accounts tweeting a cashtag, ranked by following, via the backend.
+      const sym = String(msg.symbol || "").replace(/^\$/, "");
+      if (!/^[A-Za-z0-9_]{1,20}$/.test(sym)) return null;
+      const r = await cashtagTweets(sym);
+      return "v" in r ? r.v : null;
+    }
+    case "STRIX_MARKET": {
+      // Market Insights — trench score, launchpads, chains from tehcscreener
+      // (keyless, CORS-open, updated daily). Cached 30m per window.
+      const win = ["1d", "7d", "30d", "all"].includes(String(msg.window)) ? String(msg.window) : "7d";
+      return await marketInsights(win);
+    }
+    case "STRIX_VET": {
+      // Account vetting — legit-check signals + score for an X profile.
+      const h = String(msg.handle || "").replace(/^@/, "");
+      if (!/^[A-Za-z0-9_]{1,15}$/.test(h)) return null;
+      const r = await vetAccount(h);
+      return "v" in r ? r.v : null;
     }
     case "STRIX_QUOTE": {
       // A dry run of the buy: what you would receive, and whether the trade

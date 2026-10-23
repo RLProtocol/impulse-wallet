@@ -84,3 +84,19 @@ export async function userBalances(id: string): Promise<FomoResult<any>> {
 export async function userSwaps(id: string): Promise<FomoResult<any>> {
   return await get(`/swaps/${encodeURIComponent(id)}`);
 }
+
+/** A profile's biggest ("notable") followers — verified followers ranked by
+ *  their own follower count, via twitterapi.io (key lives on the backend). */
+export async function topFollowers(handle: string): Promise<FomoResult<any>> {
+  return await get(`/x/top-followers?userName=${encodeURIComponent(handle.replace(/^@/, ""))}`);
+}
+
+/** Big accounts tweeting a cashtag, ranked by following (twitterapi.io). */
+export async function cashtagTweets(symbol: string): Promise<FomoResult<any>> {
+  return await get(`/x/cashtag-tweets?symbol=${encodeURIComponent(symbol.replace(/^\$/, ""))}`);
+}
+
+/** Account vetting — legit-check signals + score for an X handle (twitterapi.io). */
+export async function vetAccount(handle: string): Promise<FomoResult<any>> {
+  return await get(`/x/vet?userName=${encodeURIComponent(handle.replace(/^@/, ""))}`);
+}
